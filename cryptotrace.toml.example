@@ -1,0 +1,97 @@
+# CryptoTrace Configuration
+# Place this file as cryptotrace.toml in the working directory or
+# in one of the standard config paths:
+#   Linux/macOS: ~/.config/cryptotrace/cryptotrace.toml
+#   Windows:     %APPDATA%/cryptotrace/cryptotrace.toml
+
+# === AI Provider (optional, opt-in) ===
+# All AI features are disabled by default.
+# Enable by uncommenting and configuring a provider below.
+
+#[ai]
+#provider = "openai"   # or "anthropic", "local"
+#api_key = "sk-..."    # not required for "local"
+#model = "gpt-4o"
+#max_tokens = 1024
+#temperature = 0.3
+#timeout_seconds = 30
+
+# === Analysis Defaults ===
+
+[analysis]
+# Default detection context: "forensics", "malware", or "password"
+context = "forensics"
+
+# Maximum file size in bytes (default: 50 MB)
+max_file_size = 52428800
+
+# Maximum string input size in bytes (default: 10 MB)
+max_string_size = 10485760
+
+# Enable recursive layer analysis by default
+deep = false
+
+# === Signature Database ===
+
+[signatures]
+# Path to magic byte registry YAML file
+# Default: bundled into binary (if empty)
+registry_path = ""
+
+# Enable auto-update checks (requires network)
+auto_update = false
+
+# GPG key ID for signature verification (Phase 2)
+#gpg_key_id = ""
+
+# === Sandbox ===
+
+[sandbox]
+# Enable subprocess isolation for risky parsers (Phase 5)
+enabled = false
+
+# Worker binary path (default: bundled cryptotrace-worker)
+#worker_path = ""
+
+# Maximum concurrent workers
+max_workers = 4
+
+# Worker timeout in seconds
+timeout_seconds = 30
+
+# === Cache ===
+
+[cache]
+# Maximum AI narrative cache entries
+max_ai_entries = 100
+
+# Enable input deduplication cache
+dedup_enabled = true
+max_dedup_entries = 1000
+
+# === API Server (Phase 6) ===
+
+[api]
+# Enable REST API server
+enabled = false
+
+# Listen address
+bind = "127.0.0.1:8080"
+
+# API key (empty string = no auth)
+#api_key = ""
+
+# Rate limit: requests per minute
+rate_limit = 60
+
+# === Logging ===
+
+[logging]
+# Log level: trace, debug, info, warn, error
+level = "info"
+
+# Log format: "pretty" or "json"
+format = "pretty"
+
+# Audit log path (empty = disabled)
+#audit_path = ""
