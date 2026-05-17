@@ -454,9 +454,6 @@ cryptotrace/
 │   ├── fuzz/
 │   └── adversarial/
 │
-├── docker/
-│   └── Dockerfile
-│
 ├── docs/
 │   ├── GETTING_STARTED.md
 │   ├── CLI_REFERENCE.md

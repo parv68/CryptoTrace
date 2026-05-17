@@ -4,6 +4,7 @@ pub mod analyzers;
 pub mod providers;
 pub mod intelligence;
 pub mod signatures;
+pub mod update;
 pub mod cli;
 pub mod api;
 pub mod reports;

@@ -139,15 +139,32 @@ pub async fn run() -> Result<Option<DetectionResult>> {
         }
 
         Commands::Update { rollback, from_file } => {
-            let _ = (rollback, from_file);
-            tracing::info!("Signature update not yet implemented (Phase 2)");
+            let update_mgr = crate::update::UpdateManager::new(
+                std::path::Path::new("signatures"),
+            );
+
+            if *rollback {
+                update_mgr.rollback()?;
+                println!("Rolled back to signature DB: {}", update_mgr.current_version());
+            } else if let Some(path) = from_file {
+                let import_path = std::path::Path::new(path);
+                update_mgr.import_local(import_path)?;
+                println!("Imported signature DB: {}", update_mgr.current_version());
+            } else {
+                let version = update_mgr.check_for_updates()?;
+                println!("Current signature DB: {}", version);
+            }
+
             Ok(None)
         }
 
         Commands::Version => {
+            let update_mgr = crate::update::UpdateManager::new(
+                std::path::Path::new("signatures"),
+            );
             println!("CryptoTrace v{}", env!("CARGO_PKG_VERSION"));
             println!("Engine: {}", env!("CARGO_PKG_VERSION"));
-            println!("Signature DB: 0.0.0");
+            println!("Signature DB: {}", update_mgr.current_version());
             Ok(None)
         }
 

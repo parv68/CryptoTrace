@@ -120,7 +120,9 @@ pub fn build_detection_result(
         ai_narrative: None,
         detection_context: crate::types::DetectionContext::Forensics,
         engine_version: env!("CARGO_PKG_VERSION").to_string(),
-        signature_db_version: "0.0.0".to_string(),
+        signature_db_version: crate::signatures::default_registry()
+            .map(|r| r.version)
+            .unwrap_or_else(|_| "0.0.0".to_string()),
     }
 }
 

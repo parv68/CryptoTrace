@@ -1,4 +1,5 @@
 use crate::error::Result;
+use crate::signatures::{default_registry, match_signatures, MagicEntry};
 use crate::types::DetectionResult;
 
 /// Analyze a file by reading its contents and running the full detection pipeline.
@@ -29,8 +30,15 @@ pub fn analyze_bytes(data: &[u8], source_type: crate::types::SourceType) -> Resu
     // Encryption detection
     let _encryption_detection = crate::core::encryption::detect_encryption(data, entropy);
 
-    // Build result with Phase 1 confidence engine
-    let result = crate::core::confidence::build_detection_result(
+    // Signature registry matching
+    let registry = default_registry().ok();
+    let matched_signatures: Vec<&MagicEntry> = registry
+        .as_ref()
+        .map(|r| match_signatures(data, r))
+        .unwrap_or_default();
+
+    // Build result with Phase 1 confidence engine + signature info
+    let mut result = crate::core::confidence::build_detection_result(
         data,
         source_type,
         hash_detection.as_ref(),
@@ -38,6 +46,25 @@ pub fn analyze_bytes(data: &[u8], source_type: crate::types::SourceType) -> Resu
         entropy,
         Some(&sliding),
     );
+
+    // Overlay signature registry info (strongest signal)
+    if let Some(best) = matched_signatures.iter().max_by_key(|e| e.magic_bytes.len()) {
+        // Override detected type and risk from registry if stronger
+        if result.algorithm.is_none() && result.detected_type == "plaintext" {
+            result.detected_type = best.category.clone();
+            result.algorithm = Some(best.id.clone());
+            result.risk_level = crate::signatures::category_risk_level(&best.category);
+            // Boost confidence if we have a strong magic match
+            if result.confidence < 0.9 {
+                result.confidence = 0.9;
+            }
+            result.confidence_is_provisional = true;
+        }
+        // Update magic_bytes signal
+        if let Some(ref mut signals) = result.signals {
+            signals.magic_bytes = 1.0;
+        }
+    }
 
     Ok(result)
 }
@@ -54,8 +81,26 @@ mod tests {
 
     #[test]
     fn test_analyze_bytes_md5() {
-        let result = analyze_bytes(b"5f4dcc3b5aa765d61d8327deb882cf99", crate::types::SourceType::String).unwrap();
+        let result =
+            analyze_bytes(b"5f4dcc3b5aa765d61d8327deb882cf99", crate::types::SourceType::String)
+                .unwrap();
         assert_eq!(result.detected_type, "hash");
         assert_eq!(result.algorithm.as_deref(), Some("MD5"));
+    }
+
+    #[test]
+    fn test_analyze_pdf_magic() {
+        let result = analyze_bytes(b"%PDF-1.4\n...", crate::types::SourceType::File).unwrap();
+        assert_eq!(result.detected_type, "document");
+        assert_eq!(result.algorithm.as_deref(), Some("pdf"));
+        assert!(result.signals.map_or(false, |s| s.magic_bytes > 0.5));
+    }
+
+    #[test]
+    fn test_analyze_png_magic() {
+        let data = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR...";
+        let result = analyze_bytes(data, crate::types::SourceType::File).unwrap();
+        assert_eq!(result.detected_type, "image");
+        assert_eq!(result.algorithm.as_deref(), Some("png"));
     }
 }
