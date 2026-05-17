@@ -60,6 +60,12 @@ pub enum Commands {
         #[command(subcommand)]
         action: ConfigAction,
     },
+
+    /// Train or manage the calibration model
+    Calibrate {
+        #[command(subcommand)]
+        action: CalibrateAction,
+    },
 }
 
 #[derive(Subcommand)]
@@ -70,6 +76,46 @@ pub enum CacheAction {
 #[derive(Subcommand)]
 pub enum ConfigAction {
     Show,
+}
+
+#[derive(Subcommand)]
+pub enum CalibrateAction {
+    /// Train a new calibration model from CSV data
+    Train {
+        /// Path to CSV training dataset
+        #[arg(long, default_value = "calibration_data/train.csv")]
+        data: String,
+
+        /// Path to save the trained model (default: calibration_data/model.json)
+        #[arg(long, default_value = "calibration_data/model.json")]
+        output: String,
+
+        /// Gradient descent learning rate
+        #[arg(long, default_value_t = 0.1)]
+        learning_rate: f64,
+
+        /// Number of training epochs
+        #[arg(long, default_value_t = 1000)]
+        epochs: usize,
+
+        /// L2 regularization strength
+        #[arg(long, default_value_t = 0.001)]
+        l2_lambda: f64,
+    },
+
+    /// Generate synthetic training data for initial calibration
+    Generate {
+        /// Number of samples per class
+        #[arg(long, default_value_t = 200)]
+        samples: usize,
+
+        /// Output CSV path
+        #[arg(long, default_value = "calibration_data/train.csv")]
+        output: String,
+    },
+
+    /// Show current calibration model info
+    Status,
 }
 
 /// Run the CLI command and return a DetectionResult (if applicable).
@@ -184,6 +230,81 @@ pub async fn run() -> Result<Option<DetectionResult>> {
                     println!("API rate limit: 60/min");
                     println!("Max file size: 50MB");
                     println!("Max string size: 10MB");
+                }
+            }
+            Ok(None)
+        }
+
+        Commands::Calibrate { action } => {
+            match action {
+                CalibrateAction::Train { data, output, learning_rate, epochs, l2_lambda } => {
+                    let samples = crate::core::calibration::load_csv(data)?;
+                    if samples.is_empty() {
+                        eprintln!("No samples loaded from {}", data);
+                        std::process::exit(1);
+                    }
+                    println!(
+                        "Training on {} samples (lr={}, epochs={}, l2={})...",
+                        samples.len(),
+                        learning_rate,
+                        epochs,
+                        l2_lambda,
+                    );
+                    let model = crate::core::calibration::train(&samples, *learning_rate, *epochs, *l2_lambda);
+                    crate::core::calibration::save_model(&model, output)?;
+                    crate::core::confidence::set_model(model);
+                    println!("Model saved to {}", output);
+                    println!("Dataset size: {} samples", samples.len());
+                    println!("Calibration method: Platt scaling");
+                }
+                CalibrateAction::Generate { samples, output } => {
+                    let data = crate::core::calibration::generate_synthetic_dataset(*samples);
+                    // Write CSV
+                    let mut wtr = csv::Writer::from_path(output)
+                        .map_err(|e| crate::error::CryptoTraceError::Other(
+                            format!("Cannot create CSV: {}", e)
+                        ))?;
+                    wtr.write_record(&[
+                        "entropy", "block_alignment", "magic_bytes", "length_pattern",
+                        "charset_purity", "window_variance", "label", "detected_type",
+                    ]).ok();
+                    for sample in &data {
+                        wtr.write_record(&[
+                            format!("{:.6}", sample.signals.entropy),
+                            format!("{:.6}", sample.signals.block_alignment),
+                            format!("{:.6}", sample.signals.magic_bytes),
+                            format!("{:.6}", sample.signals.length_pattern),
+                            sample.signals.charset_purity
+                                .map(|v| format!("{:.6}", v))
+                                .unwrap_or_default(),
+                            sample.signals.window_variance
+                                .map(|v| format!("{:.6}", v))
+                                .unwrap_or_default(),
+                            format!("{}", sample.label as u8),
+                            sample.detected_type.clone(),
+                        ]).ok();
+                    }
+                    wtr.flush().ok();
+                    println!("Generated {} synthetic samples → {}", data.len(), output);
+                }
+                CalibrateAction::Status => {
+                    let model = crate::core::calibration::default_model();
+                    if let Some(m) = model {
+                        println!("Calibration model loaded");
+                        println!("  Dataset size: {}", m.dataset_size);
+                        println!("  Method: {}", m.method);
+                        println!("  Date: {}", m.calibration_date);
+                        println!("  Weights:");
+                        println!("    entropy:          {:.4}", m.weights[0]);
+                        println!("    block_alignment:  {:.4}", m.weights[1]);
+                        println!("    magic_bytes:      {:.4}", m.weights[2]);
+                        println!("    length_pattern:   {:.4}", m.weights[3]);
+                        println!("    charset_purity:   {:.4}", m.weights[4]);
+                        println!("    window_variance:  {:.4}", m.weights[5]);
+                        println!("  Intercept: {:.4}", m.intercept);
+                    } else {
+                        println!("No calibration model loaded (provisional fallback active)");
+                    }
                 }
             }
             Ok(None)

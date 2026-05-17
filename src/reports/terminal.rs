@@ -25,13 +25,17 @@ pub fn format_terminal(result: &DetectionResult) -> String {
     output.push_str(&format!(" Detection:  {}\n", result.algorithm.as_deref().unwrap_or("Unknown")));
     output.push_str(&format!(" Type:       {}\n", result.detected_type));
     output.push_str(&format!(" Confidence: {:.0}%", result.confidence * 100.0));
-    if result.confidence_is_provisional {
-        output.push_str(" (provisional — Phase 1 engine)");
-    }
     if result.calibrated {
-        output.push_str(" [calibrated]");
+        output.push_str(" (calibrated)");
+    } else if result.confidence_is_provisional {
+        output.push_str(" (provisional)");
     }
     output.push('\n');
+
+    // Decision trace (calibrated signal contributions)
+    if let Some(ref trace) = result.decision_trace {
+        output.push_str(&format!(" Decision:   {}\n", trace));
+    }
 
     // Signal breakdown
     if let Some(ref signals) = result.signals {

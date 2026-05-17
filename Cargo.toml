@@ -55,6 +55,12 @@ serde_yaml = "0.9"
 # Base64 encoding/decoding
 base64 = "0.22"
 
+# CSV parsing for calibration datasets
+csv = "1"
+
+# Random number generation (synthetic data, etc.)
+rand = "0.9"
+
 [dev-dependencies]
 proptest = "1"
 tempfile = "3"

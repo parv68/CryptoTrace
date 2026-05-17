@@ -70,6 +70,27 @@ pub struct CalibrationInfo {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CalibrationModel {
+    /// Learned weights for each signal: [entropy, block_alignment, magic_bytes, length_pattern, charset_purity, window_variance]
+    pub weights: [f64; 6],
+    /// Logistic regression intercept term
+    pub intercept: f64,
+    /// Number of training samples used
+    pub dataset_size: usize,
+    /// ISO-8601 date of calibration
+    pub calibration_date: String,
+    /// Method description (e.g. "Platt scaling")
+    pub method: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SignalContribution {
+    pub signal_name: String,
+    pub coefficient: f64,
+    pub contribution: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AiNarrative {
     pub summary: String,
     pub risk_reason: String,

@@ -3,6 +3,11 @@ async fn main() {
     // Initialize tracing/logging
     tracing_subscriber::fmt::init();
 
+    // Load calibration model from default path if available
+    if let Some(model) = cryptotrace::core::calibration::default_model() {
+        cryptotrace::core::confidence::set_model(model);
+    }
+
     match crate::cli::run().await {
         Ok(Some(result)) => {
             // Check JSON flag from CLI args
