@@ -2,6 +2,11 @@ use crate::types::DetectionResult;
 
 /// Format a DetectionResult as a human-readable terminal report.
 pub fn format_terminal(result: &DetectionResult) -> String {
+    format_terminal_ext(result, false)
+}
+
+/// Format with optional explain-level detail.
+pub fn format_terminal_ext(result: &DetectionResult, explain: bool) -> String {
     let mut output = String::new();
     output.push_str("═══════════════════════════════════════\n");
     output.push_str(" CryptoTrace Analysis Report\n");
@@ -52,6 +57,31 @@ pub fn format_terminal(result: &DetectionResult) -> String {
         }
         if let Some(wv) = signals.window_variance {
             output.push_str(&format!("   window_variance    {:.2}\n", wv));
+        }
+    }
+
+    // Explain-only details
+    if explain {
+        if !result.primary_drivers.is_empty() {
+            output.push_str("\n Primary Drivers:\n");
+            for driver in &result.primary_drivers {
+                output.push_str(&format!("   - {}\n", driver));
+            }
+        }
+        if !result.conflicting_signals.is_empty() {
+            output.push_str("\n Conflicting Signals:\n");
+            for conflict in &result.conflicting_signals {
+                output.push_str(&format!("   - {}\n", conflict));
+            }
+        }
+        if result.false_positive_risk > 0.0 {
+            output.push_str(&format!("\n False Positive Risk: {:.1}%\n", result.false_positive_risk * 100.0));
+        }
+        if !result.weakness_cve.is_empty() {
+            output.push_str("\n Related CVEs:\n");
+            for cve in &result.weakness_cve {
+                output.push_str(&format!("   - {}\n", cve));
+            }
         }
     }
 

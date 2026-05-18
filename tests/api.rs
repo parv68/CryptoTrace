@@ -18,6 +18,7 @@ impl TestServer {
             engine_version: "0.1.0-test".to_string(),
             sig_db_version: "test".to_string(),
             sandbox: None,
+            job_queue: None,
         });
 
         let rate_limiter = Arc::new(cryptotrace::api::auth::RateLimiter::new(1000));
@@ -175,6 +176,7 @@ async fn test_health_with_auth() {
         engine_version: "0.1.0-test".to_string(),
         sig_db_version: "test".to_string(),
         sandbox: None,
+        job_queue: None,
     });
 
     let rate_limiter = Arc::new(cryptotrace::api::auth::RateLimiter::new(1000));

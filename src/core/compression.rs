@@ -22,6 +22,7 @@ const MAGIC_BYTES: &[(&[u8], &str)] = &[
     (b"\x42\x5a\x68", "BZ2"),
     (b"\x28\xb5\x2f\xfd", "Zstd"),
     (b"\xfd\x37\x7a\x58\x5a\x00", "XZ"),
+    (b"\x04\x22\x4d\x18", "LZ4"),
     (b"\x89\x4c\x5a\x4f\x00\x0d\x0a\x1a\x0a", "Zlib"),
 ];
 
@@ -57,6 +58,8 @@ pub fn try_decompress(data: &[u8], format: &str) -> Result<DecompressResult> {
         "BZ2" => decompress_bzip2(data)?,
         "Zstd" => decompress_zstd(data)?,
         "XZ" => decompress_xz(data)?,
+        "Brotli" => decompress_brotli(data)?,
+        "LZ4" => decompress_lz4(data)?,
         "ZIP" => {
             return Err(CryptoTraceError::Decompression(
                 "ZIP decompression requires full archive reader (Phase 2+)".to_string(),
@@ -133,6 +136,26 @@ fn decompress_xz(data: &[u8]) -> Result<Vec<u8>> {
     Ok(out)
 }
 
+fn decompress_brotli(data: &[u8]) -> Result<Vec<u8>> {
+    use std::io::Read;
+    let mut decoder = brotli::Decompressor::new(data, 4096);
+    let mut out = Vec::with_capacity(data.len().min(MAX_DECOMPRESS_SIZE));
+    decoder
+        .read_to_end(&mut out)
+        .map_err(|e| CryptoTraceError::Decompression(format!("Brotli decompress: {}", e)))?;
+    Ok(out)
+}
+
+fn decompress_lz4(data: &[u8]) -> Result<Vec<u8>> {
+    use std::io::Read;
+    let mut decoder = lz4_flex::frame::FrameDecoder::new(data);
+    let mut out = Vec::with_capacity(data.len().min(MAX_DECOMPRESS_SIZE));
+    decoder
+        .read_to_end(&mut out)
+        .map_err(|e| CryptoTraceError::Decompression(format!("LZ4 decompress: {}", e)))?;
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -149,6 +172,31 @@ mod tests {
         let data = b"PK\x03\x04";
         let result = detect_compression(data).unwrap();
         assert_eq!(result.format, "ZIP");
+    }
+
+    #[test]
+    fn test_detect_brotli_by_decompress() {
+        // Brotli has no fixed magic bytes; detect via decompression attempt
+        use std::io::Write;
+        let mut encoder = brotli::CompressorWriter::new(Vec::new(), 4096, 1, 22);
+        encoder.write_all(b"test data").unwrap();
+        let compressed = encoder.into_inner();
+        // Should not match magic-based detection (no Brotli in MAGIC_BYTES)
+        let result = detect_compression(&compressed);
+        assert!(result.is_none(), "Brotli has no magic bytes");
+        // But decompression should succeed
+        let _decompressed = try_decompress(&compressed, "Brotli").unwrap();
+    }
+
+    #[test]
+    fn test_detect_lz4() {
+        use lz4_flex::frame::FrameEncoder;
+        use std::io::Write;
+        let mut encoder = FrameEncoder::new(Vec::new());
+        encoder.write_all(b"test data").unwrap();
+        let compressed = encoder.finish().unwrap();
+        let result = detect_compression(&compressed).unwrap();
+        assert_eq!(result.format, "LZ4");
     }
 
     #[test]
@@ -201,6 +249,27 @@ mod tests {
     #[test]
     fn test_xz_round_trip() {
         let _compressed = xz2::write::XzEncoder::new(Vec::new(), 1);
+    }
+
+    #[test]
+    fn test_brotli_round_trip() {
+        use std::io::Write;
+        let mut encoder = brotli::CompressorWriter::new(Vec::new(), 4096, 1, 22);
+        encoder.write_all(b"CryptoTrace Brotli test").unwrap();
+        let compressed = encoder.into_inner();
+        let result = try_decompress(&compressed, "Brotli").unwrap();
+        assert_eq!(result.data, b"CryptoTrace Brotli test");
+    }
+
+    #[test]
+    fn test_lz4_round_trip() {
+        use lz4_flex::frame::FrameEncoder;
+        use std::io::Write;
+        let mut encoder = FrameEncoder::new(Vec::new());
+        encoder.write_all(b"CryptoTrace LZ4 test").unwrap();
+        let compressed = encoder.finish().unwrap();
+        let result = try_decompress(&compressed, "LZ4").unwrap();
+        assert_eq!(result.data, b"CryptoTrace LZ4 test");
     }
 
     #[test]

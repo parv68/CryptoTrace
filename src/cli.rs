@@ -30,6 +30,10 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
 
+        /// Show full explanation: signal breakdown, primary drivers, conflicts
+        #[arg(long)]
+        explain: bool,
+
         /// Append AI narrative (requires AI provider config)
         #[arg(long)]
         ai: bool,
@@ -48,6 +52,10 @@ pub enum Commands {
         /// Import signature update from a local file (air-gap mode)
         #[arg(long)]
         from_file: Option<String>,
+
+        /// Path to detached Ed25519 or GPG signature for verification
+        #[arg(long)]
+        verify: Option<String>,
     },
 
     /// Show engine and signature database versions
@@ -127,7 +135,7 @@ pub async fn run() -> Result<Option<DetectionResult>> {
     let cli = Cli::parse();
 
     match &cli.command {
-        Commands::Analyze { input, context, deep, json: _, ai, sandbox } => {
+        Commands::Analyze { input, context, deep, json: _, explain, ai, sandbox } => {
             let detection_context = match context.as_str() {
                 "malware" => crate::types::DetectionContext::Malware,
                 "password" => crate::types::DetectionContext::Password,
@@ -218,7 +226,7 @@ pub async fn run() -> Result<Option<DetectionResult>> {
             Ok(Some(result))
         }
 
-        Commands::Update { rollback, from_file } => {
+        Commands::Update { rollback, from_file, verify } => {
             let update_mgr = crate::update::UpdateManager::new(
                 std::path::Path::new("signatures"),
             );
@@ -228,7 +236,8 @@ pub async fn run() -> Result<Option<DetectionResult>> {
                 println!("Rolled back to signature DB: {}", update_mgr.current_version());
             } else if let Some(path) = from_file {
                 let import_path = std::path::Path::new(path);
-                update_mgr.import_local(import_path)?;
+                let sig_path = verify.as_ref().map(|s| std::path::Path::new(s));
+                update_mgr.import_local(import_path, sig_path)?;
                 println!("Imported signature DB: {}", update_mgr.current_version());
             } else {
                 let version = update_mgr.check_for_updates()?;
@@ -251,7 +260,9 @@ pub async fn run() -> Result<Option<DetectionResult>> {
         Commands::Cache { action } => {
             match action {
                 CacheAction::Clear => {
-                    tracing::info!("Cache cleared");
+                    crate::intelligence::prompt::clear_cache();
+                    tracing::info!("AI narrative cache cleared");
+                    println!("AI narrative cache cleared.");
                 }
             }
             Ok(None)
@@ -349,10 +360,14 @@ pub async fn run() -> Result<Option<DetectionResult>> {
 
 /// Format and print the analysis result based on CLI flags.
 pub fn print_result(result: &DetectionResult, json: bool) {
+    print_result_ext(result, json, false)
+}
+
+pub fn print_result_ext(result: &DetectionResult, json: bool, explain: bool) {
     if json {
         println!("{}", crate::reports::json::format_json(result));
     } else {
-        print!("{}", crate::reports::terminal::format_terminal(result));
+        print!("{}", crate::reports::terminal::format_terminal_ext(result, explain));
     }
 }
 

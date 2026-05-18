@@ -1,9 +1,42 @@
+use std::collections::HashMap;
+
 use crate::core::calibration;
 use crate::core::encoding::EncodingDetection;
 use crate::core::hashing::HashDetection;
 use crate::types::{
     CalibrationModel, DetectionResult, RiskLevel, SignalBreakdown, SlidingEntropy, SourceType,
 };
+
+/// Load risk overrides from cryptotrace.toml, if present.
+pub fn load_risk_overrides() -> HashMap<String, RiskLevel> {
+    let mut overrides = HashMap::new();
+    let config_path = std::path::Path::new("cryptotrace.toml");
+    if config_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(config_path) {
+            if let Ok(parsed) = toml::from_str::<serde_json::Value>(&content) {
+                if let Some(risk) = parsed.get("risk") {
+                    if let Some(overrides_val) = risk.get("overrides") {
+                        if let Some(obj) = overrides_val.as_object() {
+                            for (key, val) in obj {
+                                if let Some(level_str) = val.as_str() {
+                                    let level = match level_str.to_lowercase().as_str() {
+                                        "low" => RiskLevel::Low,
+                                        "medium" => RiskLevel::Medium,
+                                        "high" => RiskLevel::High,
+                                        "critical" => RiskLevel::Critical,
+                                        _ => continue,
+                                    };
+                                    overrides.insert(key.clone(), level);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    overrides
+}
 
 /// Global calibration model protected by a read-write lock.
 use std::sync::RwLock;
@@ -27,12 +60,16 @@ pub fn reset_model() {
     }
 }
 
+const BASELINE_CONFIDENCE: f64 = 0.2;
+const SIGNAL_STRENGTH_WEIGHT: f64 = 0.5;
+const ENTROPY_WEIGHT: f64 = 0.3;
+
 /// Compute confidence using calibrated model if available, else provisional heuristic.
 pub fn compute_confidence(
     hash_detection: Option<&HashDetection>,
     encoding_detection: Option<&EncodingDetection>,
     entropy: f64,
-    _sliding: Option<&SlidingEntropy>,
+    sliding: Option<&SlidingEntropy>,
 ) -> f64 {
     let signal_strength = hash_detection
         .map(|h| h.confidence)
@@ -55,7 +92,55 @@ pub fn compute_confidence(
         0.5
     };
 
-    signal_strength * 0.5 + entropy_consistency * 0.3 + 0.2
+    // Correlated signal cap: if both hash AND encoding are positive, cap
+    // the combined contribution to prevent overcounting.
+    let combined = signal_strength * SIGNAL_STRENGTH_WEIGHT + entropy_consistency * ENTROPY_WEIGHT + BASELINE_CONFIDENCE;
+    if hash_detection.is_some() && encoding_detection.is_some() {
+        combined.min(0.95)
+    } else {
+        combined
+    }
+}
+
+/// Compute primary signal drivers — the signals that most influence confidence.
+fn compute_primary_drivers(
+    signal_strength: f64,
+    entropy_consistency: f64,
+) -> Vec<String> {
+    let signal_contrib = signal_strength * SIGNAL_STRENGTH_WEIGHT;
+    let entropy_contrib = entropy_consistency * ENTROPY_WEIGHT;
+
+    let mut drivers: Vec<(&str, f64)> = vec![
+        ("signal_strength", signal_contrib),
+        ("entropy_consistency", entropy_contrib),
+    ];
+    drivers.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+    drivers.into_iter()
+        .filter(|(_, v)| *v > 0.0)
+        .take(2)
+        .map(|(name, val)| format!("{} ({:.2})", name, val))
+        .collect()
+}
+
+/// Detect conflicting signals — signals that disagree with each other.
+fn compute_conflicting_signals(
+    hash_detection: Option<&HashDetection>,
+    encoding_detection: Option<&EncodingDetection>,
+    entropy: f64,
+) -> Vec<String> {
+    let mut conflicts = Vec::new();
+
+    // Hash detected but entropy is too high for a hash
+    if let Some(h) = hash_detection {
+        if entropy > 5.0 && h.algorithm != "NTLM" {
+            conflicts.push(format!("Hash mismatch: {} detected but entropy {:.1} is too high for a hash", h.algorithm, entropy));
+        }
+        if encoding_detection.is_some() {
+            conflicts.push(format!("Type conflict: hash ({}) and encoding ({}) both detected", h.algorithm, encoding_detection.unwrap().encoding_type));
+        }
+    }
+
+    conflicts
 }
 
 /// Full detection result with optional calibration overlay.
@@ -68,15 +153,28 @@ pub fn build_detection_result(
     sliding: Option<&SlidingEntropy>,
 ) -> DetectionResult {
     let input_hash = crate::core::hashing::sha256_hex(input);
-    let heuristic_confidence = compute_confidence(
-        hash_detection,
-        encoding_detection,
-        entropy,
-        sliding,
-    );
 
-    // Build signal breakdown (same as Phase 1/2)
-    let (detected_type, algorithm, weakness, risk_level, recommendations) =
+    // Compute heuristic signals
+    let signal_strength = hash_detection
+        .map(|h| h.confidence)
+        .or_else(|| encoding_detection.map(|e| e.confidence))
+        .unwrap_or(0.0);
+
+    let entropy_consistency = if hash_detection.is_some() {
+        if entropy < 4.0 { 0.9 } else { 0.3 }
+    } else if encoding_detection.is_some() {
+        if entropy > 3.0 && entropy < 7.0 { 0.8 } else { 0.4 }
+    } else {
+        0.5
+    };
+
+    let heuristic_confidence = signal_strength * SIGNAL_STRENGTH_WEIGHT
+        + entropy_consistency * ENTROPY_WEIGHT
+        + BASELINE_CONFIDENCE;
+
+    // Build signal breakdown using risk overrides
+    let risk_overrides = load_risk_overrides();
+    let (detected_type, algorithm, weakness, mut risk_level, recommendations) =
         if let Some(h) = hash_detection {
             (
                 "hash".to_string(),
@@ -122,7 +220,30 @@ pub fn build_detection_result(
         window_variance: sliding.map(|s| s.entropy_variance),
     };
 
+    // Compute primary drivers and conflicting signals
+    let primary_drivers = compute_primary_drivers(signal_strength, entropy_consistency);
+    let conflicting_signals = compute_conflicting_signals(hash_detection, encoding_detection, entropy);
+
     // Apply calibration if available
+    // Apply risk overrides and CVE data
+    let mut weakness_cve = Vec::new();
+    if let Some(ref algo) = algorithm {
+        let (overridden_risk, algo_cves) = crate::intelligence::risk::resolve_risk_level(algo, &risk_overrides);
+        if risk_overrides.contains_key(algo) {
+            risk_level = overridden_risk;
+        }
+        weakness_cve = algo_cves.clone();
+        // Also try loading from external CVE database
+        let ext_cves = crate::intelligence::risk::load_cve_database("cve-db.json");
+        for (cve_id, desc) in &ext_cves {
+            if algo.contains(cve_id) || desc.contains(algo) {
+                if !weakness_cve.contains(cve_id) {
+                    weakness_cve.push(cve_id.clone());
+                }
+            }
+        }
+    }
+
     let model = get_model();
     let (calibrated_conf, is_calibrated, decision_trace_str) = if let Some(ref m) = model {
         let cal_conf = calibration::predict_proba(m, &signals);
@@ -148,11 +269,11 @@ pub fn build_detection_result(
         false_positive_risk: 0.0,
         risk_level,
         weakness,
-        weakness_cve: vec![],
+        weakness_cve,
         recommendations,
         signals: Some(signals),
-        primary_drivers: vec![],
-        conflicting_signals: vec![],
+        primary_drivers,
+        conflicting_signals,
         decision_trace: decision_trace_str,
         layers: vec![],
         ai_narrative: None,

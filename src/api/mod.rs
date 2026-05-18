@@ -10,6 +10,7 @@ use axum::middleware;
 use axum::routing::{get, post};
 use axum::Router;
 
+use crate::jobs::JobQueue;
 use crate::sanitization::sandbox::{Sandbox, SandboxConfig};
 use routes::AppState;
 
@@ -21,6 +22,8 @@ pub struct ApiConfig {
     pub api_key: Option<String>,
     pub rate_limit_per_minute: usize,
     pub sandbox_enabled: bool,
+    pub jobs_enabled: bool,
+    pub max_concurrent_jobs: usize,
 }
 
 impl Default for ApiConfig {
@@ -31,6 +34,8 @@ impl Default for ApiConfig {
             api_key: None,
             rate_limit_per_minute: 60,
             sandbox_enabled: false,
+            jobs_enabled: false,
+            max_concurrent_jobs: 4,
         }
     }
 }
@@ -46,12 +51,21 @@ pub async fn run(config: ApiConfig) -> Result<(), crate::error::CryptoTraceError
         None
     };
 
+    let job_queue = if config.jobs_enabled {
+        let queue = JobQueue::new(config.max_concurrent_jobs);
+        queue.clone().start_worker();
+        Some(queue)
+    } else {
+        None
+    };
+
     let state = Arc::new(AppState {
         startup_time: Instant::now(),
         engine_version: env!("CARGO_PKG_VERSION").to_string(),
         sig_db_version: crate::update::UpdateManager::new(std::path::Path::new("signatures"))
             .current_version(),
         sandbox,
+        job_queue,
     });
 
     let rate_limiter = Arc::new(auth::RateLimiter::new(config.rate_limit_per_minute));
@@ -60,8 +74,16 @@ pub async fn run(config: ApiConfig) -> Result<(), crate::error::CryptoTraceError
     let mut router = Router::new()
         .route("/health", get(routes::health))
         .route("/version", get(routes::version))
-        .route("/analyze", post(routes::analyze))
-        .layer(middleware::from_fn(auth::auth_middleware));
+        .route("/analyze", post(routes::analyze));
+
+    if config.jobs_enabled {
+        router = router
+            .route("/v1/jobs", post(routes::submit_job))
+            .route("/v1/jobs/:id", get(routes::get_job))
+            .route("/v1/jobs/:id", axum::routing::delete(routes::delete_job));
+    }
+
+    router = router.layer(middleware::from_fn(auth::auth_middleware));
 
     // Inject API key into extensions
     if let Some(ref key) = config.api_key {

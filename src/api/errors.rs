@@ -21,6 +21,20 @@ pub enum ApiError {
     Internal(String),
 }
 
+impl std::fmt::Display for ApiError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ApiError::BadRequest(msg) => write!(f, "Bad request: {}", msg),
+            ApiError::Unauthorized(msg) => write!(f, "Unauthorized: {}", msg),
+            ApiError::RateLimited { retry_after_seconds } => {
+                write!(f, "Rate limited, retry after {}s", retry_after_seconds)
+            }
+            ApiError::NotFound(msg) => write!(f, "Not found: {}", msg),
+            ApiError::Internal(msg) => write!(f, "Internal error: {}", msg),
+        }
+    }
+}
+
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let (status, body, retry) = match &self {

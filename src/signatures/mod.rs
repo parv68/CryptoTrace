@@ -126,7 +126,8 @@ mod tests {
     fn test_default_registry_loads() {
         let reg = default_registry().unwrap();
         assert_eq!(reg.version, "1.0.0");
-        assert!(!reg.signatures.is_empty());
+        let count = reg.signatures.len();
+        assert!(count >= 100, "Expected 100+ signatures, got {}", count);
         // Verify some expected entries exist
         let ids: Vec<&str> = reg.signatures.iter().map(|e| e.id.as_str()).collect();
         assert!(ids.contains(&"gzip"));
@@ -137,6 +138,10 @@ mod tests {
         assert!(ids.contains(&"java_class"));
         assert!(ids.contains(&"sqlite"));
         assert!(ids.contains(&"wasm"));
+        // Verify new additions
+        assert!(ids.contains(&"heic"), "HEIC should be in registry");
+        assert!(ids.contains(&"pcapng"), "PCAPNG should be in registry");
+        assert!(ids.contains(&"age"), "age should be in registry");
     }
 
     #[test]
@@ -144,8 +149,9 @@ mod tests {
         let reg = default_registry().unwrap();
         let data = b"\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\x03";
         let matches = match_signatures(data, &reg);
-        assert_eq!(matches.len(), 1);
-        assert_eq!(matches[0].id, "gzip");
+        // Multiple entries may match GZIP magic (gzip, gzip_tar, dockertar)
+        assert!(matches.len() >= 1);
+        assert!(matches.iter().any(|m| m.id == "gzip"));
     }
 
     #[test]
@@ -153,8 +159,8 @@ mod tests {
         let reg = default_registry().unwrap();
         let data = b"%PDF-1.4";
         let matches = match_signatures(data, &reg);
-        assert_eq!(matches.len(), 1);
-        assert_eq!(matches[0].id, "pdf");
+        assert!(matches.len() >= 1);
+        assert!(matches.iter().any(|m| m.id == "pdf"));
     }
 
     #[test]
@@ -162,8 +168,8 @@ mod tests {
         let reg = default_registry().unwrap();
         let data = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR";
         let matches = match_signatures(data, &reg);
-        assert_eq!(matches.len(), 1);
-        assert_eq!(matches[0].id, "png");
+        assert!(matches.len() >= 1);
+        assert!(matches.iter().any(|m| m.id == "png"));
     }
 
     #[test]
@@ -171,8 +177,9 @@ mod tests {
         let reg = default_registry().unwrap();
         let data = b"\x7fELF\x02\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00";
         let matches = match_signatures(data, &reg);
-        assert_eq!(matches.len(), 1);
-        assert_eq!(matches[0].id, "elf");
+        // ELF magic matches elf, elf_s390, elf_core
+        assert!(matches.len() >= 1);
+        assert!(matches.iter().any(|m| m.id == "elf"));
     }
 
     #[test]
@@ -180,8 +187,9 @@ mod tests {
         let reg = default_registry().unwrap();
         let data = b"MZ\x90\x00\x03\x00\x00\x00\x04\x00\x00\x00\xff\xff\x00\x00";
         let matches = match_signatures(data, &reg);
-        assert_eq!(matches.len(), 1);
-        assert_eq!(matches[0].id, "pe");
+        // MZ magic matches pe, pe32, msdos_stub
+        assert!(matches.len() >= 1);
+        assert!(matches.iter().any(|m| m.id == "pe"));
     }
 
     #[test]

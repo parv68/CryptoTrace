@@ -8,6 +8,9 @@ async fn main() {
         cryptotrace::core::confidence::set_model(model);
     }
 
+    // Initialize AI narrative cache
+    cryptotrace::intelligence::prompt::init_cache(100);
+
     // Check for --api flag to start in server mode
     let is_api = std::env::args().any(|a| a == "--api");
 
@@ -23,7 +26,8 @@ async fn main() {
         match cryptotrace::cli::run().await {
             Ok(Some(result)) => {
                 let json = std::env::args().any(|a| a == "--json");
-                cryptotrace::cli::print_result(&result, json);
+                let explain = std::env::args().any(|a| a == "--explain");
+                cryptotrace::cli::print_result_ext(&result, json, explain);
             }
             Ok(None) => {}
             Err(e) => {

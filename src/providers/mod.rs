@@ -1,3 +1,5 @@
+pub mod community;
+
 use crate::error::{CryptoTraceError, Result};
 use crate::types::AiNarrative;
 

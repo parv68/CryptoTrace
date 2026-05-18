@@ -553,3 +553,494 @@ signatures:
       contributor: cryptotrace-core
       review_status: verified
       review_date: "2026-05-17"
+
+  # ── Additional Audio Formats ─────────────────────────────
+  - id: opus
+    name: Opus Audio
+    magic_bytes: "4F70757348656164"
+    offset: 0
+    category: audio
+    risk_level: LOW
+    notes: Opus audio in Ogg container; 'OpusHead' at offset 0
+
+  - id: m4a
+    name: MPEG-4 Audio (M4A)
+    magic_bytes: "00000020667479704D344120"
+    offset: 4
+    category: audio
+    risk_level: LOW
+    notes: Apple AAC audio in MP4 container
+
+  - id: midi
+    name: MIDI Audio
+    magic_bytes: "4D546864"
+    offset: 0
+    category: audio
+    risk_level: LOW
+    notes: Standard MIDI file header
+
+  - id: au
+    name: Sun AU Audio
+    magic_bytes: "2E736E64"
+    offset: 0
+    category: audio
+    risk_level: LOW
+    notes: Sun Microsystems AU audio format
+
+  - id: aiff
+    name: AIFF Audio
+    magic_bytes: "464F524D"
+    offset: 0
+    category: audio
+    risk_level: LOW
+    notes: Audio Interchange File Format; check AIFF at offset 8
+
+  - id: amr
+    name: AMR Audio
+    magic_bytes: "2321414D52"
+    offset: 0
+    category: audio
+    risk_level: LOW
+    notes: Adaptive Multi-Rate audio (3GPP)
+
+  # ── Additional Video Formats ─────────────────────────────
+  - id: webm
+    name: WebM Video
+    magic_bytes: "1A45DFA3"
+    offset: 0
+    category: video
+    risk_level: LOW
+    notes: WebM (Matroska container with VP8/VP9 video)
+
+  - id: ogv
+    name: Ogg Video (OGV)
+    magic_bytes: "4F676753"
+    offset: 0
+    category: video
+    risk_level: LOW
+    notes: Theora video in Ogg container
+
+  - id: m2ts
+    name: MPEG-2 Transport Stream
+    magic_bytes: "4741"
+    offset: 0
+    category: video
+    risk_level: LOW
+    notes: Blu-ray MPEG-2 transport stream; 0x47 sync byte
+
+  - id: ts
+    name: MPEG Transport Stream
+    magic_bytes: "47"
+    offset: 0
+    category: video
+    risk_level: LOW
+    notes: MPEG-2 Transport Stream packet sync
+
+  - id: threegp
+    name: 3GP Video
+    magic_bytes: "0000002066747970336770"
+    offset: 4
+    category: video
+    risk_level: LOW
+    notes: 3GPP multimedia container
+
+  - id: asf
+    name: Advanced Systems Format (WMV/WMA)
+    magic_bytes: "3026B2758E66CF11"
+    offset: 0
+    category: video
+    risk_level: LOW
+    notes: ASF container used by Windows Media
+
+  # ── Additional Document Formats ──────────────────────────
+  - id: doc_ole2
+    name: OLE2 Compound Document (DOC/XLS/PPT)
+    magic_bytes: "D0CF11E0A1B11AE1"
+    offset: 0
+    category: document
+    risk_level: MEDIUM
+    notes: Legacy Microsoft Office format; check for sub-streams
+
+  - id: epub
+    name: EPUB eBook
+    magic_bytes: "504B0304"
+    offset: 0
+    category: document
+    risk_level: LOW
+    notes: EPUB is a ZIP with mimetype at root; check offset 30 for "mimetype"
+    subtypes:
+      - id: epub_mimetype
+        name: EPUB eBook
+        detect: "mimetypeapplication/epub+zip"
+    provenance:
+      contributor: cryptotrace-core
+      review_status: verified
+      review_date: "2026-05-17"
+
+  - id: ps
+    name: PostScript Document
+    magic_bytes: "25525053"
+    offset: 0
+    category: document
+    risk_level: LOW
+    notes: Encapsulated PostScript (EPS) or PostScript file
+
+  - id: xps
+    name: XML Paper Specification (XPS)
+    magic_bytes: "504B0304"
+    offset: 0
+    category: document
+    risk_level: LOW
+    notes: XPS is a ZIP with FixedDocument.fdoc
+
+  # ── Additional Image Formats ─────────────────────────────
+  - id: jpeg2000
+    name: JPEG 2000 Image
+    magic_bytes: "0000000C6A5020200D0A870A"
+    offset: 0
+    category: image
+    risk_level: LOW
+
+  - id: exr
+    name: OpenEXR Image
+    magic_bytes: "762F3101"
+    offset: 0
+    category: image
+    risk_level: LOW
+    notes: High dynamic range image format by ILM
+
+  - id: dds
+    name: DirectDraw Surface
+    magic_bytes: "44445320"
+    offset: 0
+    category: image
+    risk_level: LOW
+    notes: DirectX texture container
+
+  - id: psd
+    name: Photoshop Document
+    magic_bytes: "38425053"
+    offset: 0
+    category: image
+    risk_level: LOW
+    notes: Adobe Photoshop native format
+
+  - id: tga
+    name: Truevision TGA Image
+    magic_bytes: "000200"
+    offset: 0
+    category: image
+    risk_level: LOW
+    notes: Truevision Targa image; requires length check
+
+  - id: svg
+    name: SVG Image (compressed)
+    magic_bytes: "504B0304"
+    offset: 0
+    category: image
+    risk_level: LOW
+    notes: SVG files inside ZIP (OOXML-style)
+
+  - id: heic
+    name: HEIC Image
+    magic_bytes: "000000206674797068656963"
+    offset: 4
+    category: image
+    risk_level: LOW
+    notes: High Efficiency Image Container (Apple)
+
+  # ── Additional Archive Formats ───────────────────────────
+  - id: gzip_tar
+    name: GZIP-compressed TAR
+    magic_bytes: "1F8B"
+    offset: 0
+    category: archive
+    risk_level: LOW
+
+  - id: lz4_raw
+    name: LZ4 Raw Stream
+    magic_bytes: "04224D18"
+    offset: 0
+    category: compression
+    risk_level: LOW
+
+  - id: zlib_stream
+    name: Zlib Compressed Stream
+    magic_bytes: "78"
+    offset: 0
+    category: compression
+    risk_level: LOW
+    notes: Zlib stream; 0x78 prefix indicates default compression
+    subtypes:
+      - id: zlib_default
+        name: Zlib Default Compression
+        detect: "01"
+      - id: zlib_best
+        name: Zlib Best Compression
+        detect: "DA"
+
+  - id: lha
+    name: LHA/LZH Archive
+    magic_bytes: "2D6C68302D"
+    offset: 2
+    category: archive
+    risk_level: LOW
+    notes: LHA/LZH compressed archive; header starts at offset 2
+
+  - id: cab
+    name: Microsoft Cabinet Archive
+    magic_bytes: "4D534346"
+    offset: 0
+    category: archive
+    risk_level: MEDIUM
+    notes: Windows Installer cabinet file (.cab)
+
+  - id: nsys
+    name: NSIS Installer
+    magic_bytes: "6E536973"
+    offset: 0
+    category: archive
+    risk_level: MEDIUM
+    notes: Nullsoft Scriptable Install System archive
+
+  - id: dmg_hfs
+    name: Apple Disk Image (DMG)
+    magic_bytes: "7801"
+    offset: 56
+    category: disk
+    risk_level: LOW
+    notes: Apple UDIF/DMG disk image; zlib-compressed at offset 56
+
+  # ── More Disk Images ────────────────────────────────────
+  - id: vhd
+    name: Virtual Hard Disk (VHD)
+    magic_bytes: "636F6E6563746978"
+    offset: 0
+    category: disk
+    risk_level: LOW
+    notes: Microsoft VHD; "conectix" signature at offset 0
+
+  - id: vhdx
+    name: Virtual Hard Disk v2 (VHDX)
+    magic_bytes: "7668647866696C65"
+    offset: 0
+    category: disk
+    risk_level: LOW
+    notes: Microsoft VHDX with 64KB headers; "vhdxfile" at offset 0
+
+  - id: qed
+    name: QEMU QED Disk Image
+    magic_bytes: "51454400"
+    offset: 0
+    category: disk
+    risk_level: LOW
+
+  # ── More Executables ────────────────────────────────────
+  - id: pe32
+    name: PE32+ Executable (64-bit)
+    magic_bytes: "4D5A"
+    offset: 0
+    category: executable
+    risk_level: CRITICAL
+    subtypes:
+      - id: pe32_exe
+        name: PE32+ Executable
+        detect: "PE_LF_EXECUTABLE"
+      - id: pe32_dll
+        name: PE32+ DLL
+        detect: "PE_LF_DLL"
+
+  - id: msdos_stub
+    name: MS-DOS Executable
+    magic_bytes: "4D5A"
+    offset: 0
+    category: executable
+    risk_level: HIGH
+    notes: DOS executable stub (may also be PE); check e_lfanew
+
+  - id: elf_s390
+    name: ELF Binary (IBM S/390)
+    magic_bytes: "7F454C46"
+    offset: 0
+    category: executable
+    risk_level: HIGH
+
+  - id: xar
+    name: XAR Archive (macOS)
+    magic_bytes: "78617221"
+    offset: 0
+    category: executable
+    risk_level: MEDIUM
+    notes: macOS XAR (eXtensible ARchive) used by Installer
+
+  - id: universal_binary
+    name: Universal Binary (macOS)
+    magic_bytes: "CAFEBABE"
+    offset: 0
+    category: executable
+    risk_level: HIGH
+    notes: Fat binary with multiple architectures
+
+  - id: java_keystore
+    name: Java KeyStore (JKS)
+    magic_bytes: "FEEDFEED"
+    offset: 0
+    category: cryptographic
+    risk_level: CRITICAL
+    notes: Java keystore containing certificates and private keys
+
+  # ── More Cryptographic ──────────────────────────────────
+  - id: cert_der
+    name: DER X.509 Certificate
+    magic_bytes: "3082"
+    offset: 0
+    category: cryptographic
+    risk_level: LOW
+    notes: DER-encoded X.509 certificate or CRL
+
+  - id: cert_pem
+    name: PEM Certificate
+    magic_bytes: "2D2D2D2D424547494E2043455254494649434154452D2D2D2D"
+    offset: 0
+    category: cryptographic
+    risk_level: LOW
+
+  - id: crl_pem
+    name: PEM CRL
+    magic_bytes: "2D2D2D2D424547494E20584E35322043524C2D2D2D2D"
+    offset: 0
+    category: cryptographic
+    risk_level: LOW
+
+  - id: ssh_key_pub
+    name: SSH Public Key
+    magic_bytes: "656432353535313920"
+    offset: 0
+    category: cryptographic
+    risk_level: MEDIUM
+    notes: "Hex for 'ed25519 ' prefix"
+
+  - id: minisign
+    name: Minisign Signature
+    magic_bytes: "756E7472757374656420636F6D6D656E74"
+    offset: 0
+    category: cryptographic
+    risk_level: LOW
+    notes: Minisign signature comment header
+
+  - id: age
+    name: age Encrypted File
+    magic_bytes: "6167652D656E6372797074696F6E2E6F7267"
+    offset: 0
+    category: cryptographic
+    risk_level: MEDIUM
+    notes: age-encrypted file header
+
+  # ── Game & Data Formats ─────────────────────────────────
+  - id: saf
+    name: Standard Archive Format (Minecraft)
+    magic_bytes: "0A000000633078"
+    offset: 0
+    category: archive
+    risk_level: LOW
+
+  - id: rpkg
+    name: Unity Asset Bundle
+    magic_bytes: "556E6974794673"
+    offset: 0
+    category: archive
+    risk_level: LOW
+
+  # ── Additional Database Formats ─────────────────────────
+  - id: lmdb
+    name: LMDB Environment
+    magic_bytes: "00000000"
+    offset: 0
+    category: database
+    risk_level: LOW
+    notes: LMDB metadata page; detect via environment size at offset 4
+
+  - id: dbase_dbf
+    name: dBase/FoxPro Database
+    magic_bytes: "03"
+    offset: 0
+    category: database
+    risk_level: LOW
+
+  - id: dbase_dbf_memo
+    name: dBase/FoxPro Memo
+    magic_bytes: "F5"
+    offset: 0
+    category: database
+    risk_level: LOW
+
+  # ── Additional Code Formats ─────────────────────────────
+  - id: class_version
+    name: Java Class File (version specific)
+    magic_bytes: "CAFEBABE"
+    offset: 0
+    category: code
+    risk_level: MEDIUM
+
+  - id: keystore_bks
+    name: Bouncy Castle KeyStore (BKS)
+    magic_bytes: "CEFECEFE"
+    offset: 0
+    category: cryptographic
+    risk_level: CRITICAL
+
+  - id: eot
+    name: Embedded OpenType Font
+    magic_bytes: "454F5446"
+    offset: 0
+    category: font
+    risk_level: LOW
+
+  - id: elf_core
+    name: ELF Core Dump
+    magic_bytes: "7F454C46"
+    offset: 0
+    category: executable
+    risk_level: HIGH
+    notes: Core dump with ET_CORE type
+
+  # ── Networking & Container Formats ──────────────────────
+  - id: pcap
+    name: PCAP Network Capture
+    magic_bytes: "D4C3B2A1"
+    offset: 0
+    category: archive
+    risk_level: LOW
+    notes: libpcap savefile; big-endian variant
+
+  - id: pcap_le
+    name: PCAP Network Capture (LE)
+    magic_bytes: "A1B2C3D4"
+    offset: 0
+    category: archive
+    risk_level: LOW
+    notes: libpcap savefile; little-endian
+
+  - id: pcapng
+    name: PCAPNG Network Capture
+    magic_bytes: "0A0D0D0A"
+    offset: 0
+    category: archive
+    risk_level: LOW
+    notes: pcapng (Next Generation) capture format
+
+  - id: dockertar
+    name: Docker Image Layer
+    magic_bytes: "1F8B"
+    offset: 0
+    category: archive
+    risk_level: LOW
+    notes: Docker image layers are gzip-compressed tars
+
+  - id: flatbuffers
+    name: FlatBuffers Binary
+    magic_bytes: "424F554E44"
+    offset: 4
+    category: code
+    risk_level: LOW
+    notes: Google FlatBuffers serialized binary; "BOND" identifier

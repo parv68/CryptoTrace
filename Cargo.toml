@@ -64,6 +64,9 @@ csv = "1"
 # Random number generation (synthetic data, etc.)
 rand = "0.9"
 
+# LZ4 compression
+lz4_flex = "0.11"
+
 # HTTP client for AI providers
 reqwest = { version = "0.12", features = ["json"] }
 
@@ -71,6 +74,11 @@ reqwest = { version = "0.12", features = ["json"] }
 proptest = "1"
 tempfile = "3"
 reqwest = { version = "0.12", features = ["json"] }
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[lib]
+name = "cryptotrace"
+path = "src/lib.rs"
 
 [[bin]]
 name = "cryptotrace"
