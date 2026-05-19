@@ -1,361 +1,736 @@
 # CryptoTrace
 
-**Cryptographic Fingerprinting & Data Classification Engine**
+[![CI](https://github.com/parv68/CryptoTrace/actions/workflows/ci.yml/badge.svg)](https://github.com/parv68/CryptoTrace/actions/workflows/ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
+[![Rust 2024](https://img.shields.io/badge/Rust-2024%20edition-000000.svg)](Cargo.toml)
 
-CryptoTrace analyses files and strings to detect cryptographic fingerprints — hashes, encodings, compressed data, encrypted blobs, and embedded high-entropy payloads. It explains *why* something is flagged via signal breakdown, calibrated confidence scoring, recursive layer unwrapping, and optional AI narrative generation.
+CryptoTrace is an open-source **cryptographic fingerprinting and data classification engine**.
 
----
+Give it a suspicious file, a blob of bytes, or a string.
+CryptoTrace classifies what it most likely is.
 
-## Features
+Examples of classifications:
+- Hashes (MD5, SHA-1, SHA-256, bcrypt, Argon2, NTLM, PBKDF2 variants)
+- Encodings (Base64, Hex, Base32, Base58, Ascii85, Z85, Base91, URL encoding)
+- Compression formats (GZIP, Zstd, XZ, BZ2, Brotli, LZ4, ZIP)
+- File formats (magic-byte registry for common formats and subtypes)
+- High-entropy payloads and likely encryption heuristics
 
-- **Hash detection** — MD5, SHA1, SHA256, SHA512, bcrypt, Argon2id, NTLM, UUID (with whitespace stripping and disambiguation)
-- **Encoding detection** — Base64, Hex, URL Encoding, Base32 (with confidence scoring and decode preview)
-- **Compression detection** — GZIP, BZ2, Zstd, XZ, ZIP magic bytes + resource-limited decompression with expansion ratio guard (100:1 max)
-- **Encryption heuristics** — OpenSSL AES (`Salted__` prefix), RSA PEM headers, generic high-entropy + block alignment detection
-- **Entropy analysis** — Shannon entropy (0.0–8.0) + 4KB sliding window with 2KB stride to find embedded high-entropy regions
-- **Magic byte registry** — 50-entry YAML-driven signature database covering compression, documents, images, audio, video, executables, archives, disk images, cryptographic keys, fonts, databases, and bytecode formats
-- **Recursive layer analysis** — unwraps nested encoding/compression with cycle detection, depth limit (10), timeout (30s), and expansion ratio guard
-- **Calibrated confidence engine** — Platt scaling logistic regression (gradient descent with L2 regularization) trained on 6 signal features; includes fallback provisional scoring when no model is loaded
-- **AI narrative generation** — optional per-analysis narrative from OpenAI, Anthropic, or local models (Ollama); structured JSON output with per-field hallucination validation
-- **REST API** — axum-based HTTP server with `POST /analyze`, `GET /health`, `GET /version`; Bearer token auth and token-bucket rate limiting
-- **Subprocess sandbox** — isolates risky parsers in a separate process with hard timeout and crash recovery
-- **Risk classification** — Critical / High / Medium / Low / Unknown with category-based defaults and user override support
-- **Audit logging** — structured tracing events for every analysis
-- **Input sanitization** — size limits (50 MB files, 10 MB strings), null byte policy, path traversal prevention, symlink detection
-- **CLI** — `analyze`, `update`, `version`, `cache`, `config`, `calibrate` commands via clap derive
-- **JSON output** — machine-readable analysis results with all signals and metadata
+CryptoTrace does not decrypt.
+It does not claim certainty.
+It explains what it sees, how confident it is, and why.
 
----
+Air-gapped by default.
+Network features are opt-in.
 
-## Installation
+## Table Of Contents
 
-### Prerequisites
+1. What This Project Solves
+2. What CryptoTrace Is (And Isn't)
+3. Who It's For
+4. Quick Start
+5. How It Works (Architecture)
+6. Feature Tour
+7. CLI Reference
+8. API Reference
+9. Output Schema
+10. Configuration Reference
+11. Security Model
+12. Threat Intel (Opt-In)
+13. SIEM Integration (CEF/LEEF)
+14. Reports (JSON/HTML)
+15. Signature Database and Updates
+16. Calibration (Confidence Model)
+17. Testing, Fuzzing, and Quality Gates
+18. Packaging and Distribution (v1 Plan)
+19. Development
+20. Troubleshooting
+21. Project Status and Roadmap
+22. Contributing
+23. License
 
-- **Rust 1.95.0** or later (stable toolchain)
-- **Windows** (x86_64-pc-windows-msvc) — primary target
+## What This Project Solves
 
-### Build from source
+In real security work you regularly encounter unknown data:
+- A blob inside a PowerShell script
+- A base64-looking string in logs
+- A file that "isn't opening" but has a recognizable header
+- A suspicious attachment that might be a packed payload
+- A credential dump with mixed hash formats
+
+You want answers fast:
+- What is this likely to be
+- Is it wrapped in layers
+- Is it weak crypto
+- Is it safe to handle
+- Can I pipe it into a pipeline and get deterministic output
+
+CryptoTrace is built to answer those questions with:
+- deterministic signals
+- conservative heuristics
+- explainability
+- safety guardrails
+
+## What CryptoTrace Is (And Isn't)
+
+CryptoTrace is:
+- A classifier and signal aggregator
+- A forensic assistant for triage
+- A safe-by-default analyzer for attacker-controlled inputs
+
+CryptoTrace is not:
+- A decryption tool
+- A malware sandbox
+- A substitute for full reverse engineering
+
+CryptoTrace is honest about limitations:
+- High entropy does not mean encryption
+- Many encodings and packers are custom
+- Malware can evade common detectors
+
+## Who It's For
+
+CryptoTrace is designed for:
+1. SOC analysts
+2. incident responders
+3. malware researchers
+4. forensic engineers
+5. security auditors
+6. students learning crypto formats and payload hygiene
+
+## Quick Start
+
+### Build
 
 ```bash
-git clone https://github.com/your-org/cryptotrace.git
-cd cryptotrace
+git clone https://github.com/parv68/CryptoTrace
+cd CryptoTrace
 cargo build --release
 ```
 
-The release binary will be at `target/release/cryptotrace.exe` (~6.1 MB). A worker binary is also produced at `target/release/cryptotrace-worker.exe` (~826 KB) for subprocess isolation.
+Binaries:
+- `target/release/cryptotrace`
+- `target/release/cryptotrace-worker`
 
 ### Verify
+
+```bash
+target/release/cryptotrace version
+```
+
+### Analyze A String
+
+```bash
+target/release/cryptotrace analyze "5f4dcc3b5aa765d61d8327deb882cf99" --explain
+```
+
+### Analyze A File
+
+```bash
+target/release/cryptotrace analyze suspicious.bin --deep --sandbox
+```
+
+### JSON Output
+
+```bash
+target/release/cryptotrace analyze suspicious.bin --json
+```
+
+### Start The API
+
+```bash
+target/release/cryptotrace --api
+```
+
+OpenAPI spec:
+
+```bash
+curl http://127.0.0.1:8080/docs
+```
+
+## How It Works (Architecture)
+
+CryptoTrace turns an input into signals.
+Signals become a confidence score.
+Confidence becomes an explainable decision.
+Optionally, CryptoTrace unwraps layers.
+
+```mermaid
+flowchart TD
+  A[Input
+  file / string / bytes] --> B[Sanitization
+  size limits
+  null policy
+  path validation]
+  B --> C[Signal Extraction
+  hash detection
+  encoding detection
+  compression detection
+  magic bytes
+  entropy + sliding entropy
+  encryption heuristics]
+  C --> D[Confidence Engine
+  multi-signal weighting
+  correlated cap]
+  D --> E[Calibration Layer
+  optional Platt scaling]
+  E --> F[Recursive Layer Analyzer
+  depth limit
+  timeout
+  expansion ratio guard
+  cycle detection]
+  F --> G[Intelligence
+  risk mapping
+  CVE mapping
+  recommendations]
+  G --> H[Outputs
+  terminal
+  JSON
+  HTML
+  REST API
+  CEF/LEEF]
+```
+
+Safety guardrails are non-negotiable:
+- max file size
+- max recursion depth
+- max recursion time
+- max expansion ratio
+- worker isolation
+
+## Feature Tour
+
+This section is a practical overview.
+Details are later in the README.
+
+### 1. Hash Detection
+
+CryptoTrace detects common hashes.
+It also avoids false positives where formats overlap.
+
+Examples:
+- UUID vs MD5 disambiguation
+- NTLM vs generic 32-hex strings
+- whitespace stripping for command output formats
+
+### 2. Encoding Detection
+
+CryptoTrace detects common encodings.
+It attempts decode to verify.
+It uses confidence scoring rather than yes/no.
+
+### 3. Compression Detection
+
+CryptoTrace detects compression by magic bytes and by trying to decompress.
+It enforces hard limits to avoid decompression bombs.
+
+### 4. Entropy Analysis
+
+CryptoTrace computes Shannon entropy.
+CryptoTrace also computes sliding-window entropy.
+
+Why sliding windows matter:
+- malware payloads are often embedded inside low-entropy wrappers
+- a single global entropy value can hide embedded regions
+
+### 5. Recursive Layer Unwrapping
+
+CryptoTrace can unwrap nested layers.
+Common patterns:
+- Base64 over GZIP
+- Base64 over ZIP
+- multi-layer encodings
+
+Guards:
+- depth limit
+- time limit
+- expansion ratio limit
+- cycle detection
+
+### 6. Explainability
+
+CryptoTrace does not just output a score.
+It outputs:
+- signal breakdown
+- primary drivers
+- conflicting signals
+- a decision trace
+
+### 7. Threat Intel (Opt-In)
+
+CryptoTrace can optionally query VirusTotal.
+CryptoTrace can optionally run YARA scans.
+
+These are opt-in.
+Air-gapped operation remains the default.
+
+### 8. API and Job Queue
+
+CryptoTrace can run as a service.
+It supports synchronous analysis and async jobs.
+
+### 9. Reports
+
+CryptoTrace can emit:
+- JSON (machine-readable)
+- HTML (human-readable)
+
+### 10. SIEM Output
+
+CryptoTrace provides CEF and LEEF line formatters.
+They are designed for ingestion in SOC pipelines.
+
+## CLI Reference
+
+The CLI is implemented in `src/cli.rs`.
+Run:
+
+```bash
+cryptotrace --help
+cryptotrace analyze --help
+```
+
+### `cryptotrace analyze`
+
+Synopsis:
+
+```bash
+cryptotrace analyze <input>
+  --context forensics|malware|password
+  --deep
+  --json
+  --explain
+  --ai
+  --sandbox
+```
+
+Arguments:
+- `<input>`
+
+`<input>` can be:
+- a literal string
+- a file path
+
+Flags:
+- `--context`
+- `--deep`
+- `--json`
+- `--explain`
+- `--ai`
+- `--sandbox`
+
+Examples:
+
+```bash
+cryptotrace analyze "aGVsbG8=" --explain
+cryptotrace analyze suspicious.bin
+cryptotrace analyze suspicious.bin --deep --explain
+cryptotrace analyze suspicious.bin --deep --sandbox --json
+cryptotrace analyze "8846F7EAEE8FB117AD06BDD830B7586C" --context password --explain
+```
+
+### `cryptotrace update`
+
+Synopsis:
+
+```bash
+cryptotrace update
+cryptotrace update --rollback
+cryptotrace update --from-file <bundle> --verify <sig>
+```
+
+Notes:
+- Updates are verified.
+- Rollback is supported.
+- Air-gap import is supported.
+
+### `cryptotrace version`
 
 ```bash
 cryptotrace version
 ```
 
-Expected output:
-```
-CryptoTrace v0.1.0
-Engine: 0.1.0
-Signature DB: 1.0.0
-```
-
----
-
-## Usage
-
-### Analyze a string
-
-```bash
-cryptotrace analyze "5f4dcc3b5aa765d61d8327deb882cf99"
-```
-
-Detects MD5 hash:
-
-```
-═══════════════════════════════════════
- CryptoTrace Analysis Report
-═══════════════════════════════════════
-
- Input:      3f2cd8e57b096fe7e4a78a5627e34ca3
- Entropy:    3.80 / 8.00
- Risk Level: Critical
- Source:     String
-
- Detection:  MD5
- Type:       hash
- Confidence: 94% (calibrated)
-
- Signals:
-   entropy            3.80
-   block_alignment    0.00
-   magic_bytes        0.00
-   length_pattern     1.00
-   charset_purity     1.00
-   window_variance    0.00
-
- Weakness:   collision_vulnerable, rainbow_table_crackable
-
- Recommendation:
-   Replace with bcrypt (cost ≥ 12) or Argon2id.
-
-═══════════════════════════════════════
-```
-
-### Analyze a file
-
-```bash
-cryptotrace analyze suspicious_file.bin
-```
-
-If the path exists, it is read and analysed as a file.
-
-### JSON output
-
-```bash
-cryptotrace analyze "5f4dcc3b5aa765d61d8327deb882cf99" --json
-```
-
-Returns structured JSON with all fields.
-
-### Recursive analysis
-
-```bash
-cryptotrace analyze encoded_payload.bin --deep
-```
-
-Unwraps nested layers (Base64 → GZIP → ...) up to depth 10 with timeout and expansion ratio guards.
-
-### Sandboxed analysis
-
-```bash
-cryptotrace analyze unknown.bin --sandbox
-```
-
-Runs the detection pipeline in an isolated subprocess with timeout and crash recovery.
-
-### AI narrative
-
-```bash
-# Requires OPENAI_API_KEY or ANTHROPIC_API_KEY env var
-cryptotrace analyze "5f4dcc3b5aa765d61d8327deb882cf99" --ai
-```
-
-Appends an AI-generated narrative (summary, risk reason, recommended action, confidence statement) to the output. Every field is validated for hallucination — CVEs must be real, summaries are sentence-limited, and risk reasons must reference actual signals.
-
-### Calibrate confidence
-
-```bash
-# Generate synthetic training data
-cryptotrace calibrate generate --samples 200
-
-# Train a Platt scaling model
-cryptotrace calibrate train --data calibration_data/train.csv
-
-# Check model status
-cryptotrace calibrate status
-```
-
-The calibration model is loaded at startup and used to produce calibrated confidence scores with per-signal attribution.
-
-### Signature database management
-
-```bash
-# Check current version
-cryptotrace update
-
-# Import an update from a local file (air-gap mode)
-cryptotrace update --from-file /path/to/updated-registry.yaml
-
-# Roll back to previous version
-cryptotrace update --rollback
-```
-
-### REST API server
-
-```bash
-# Start the API server (Ctrl+C to stop)
-cryptotrace --api
-```
-
-By default listens on `127.0.0.1:8080`. Configure via `cryptotrace.toml`:
-
-```toml
-[api]
-bind = "127.0.0.1:8080"
-api_key = "your-secret-key"
-rate_limit = 60
-sandbox_enabled = false
-```
-
-```bash
-# Health check
-curl http://127.0.0.1:8080/health
-
-# Analyze via API
-curl -X POST http://127.0.0.1:8080/analyze \
-  -H "Content-Type: application/json" \
-  -d '{"input": "5f4dcc3b5aa765d61d8327deb882cf99", "input_type": "string"}'
-```
-
-### Cache and configuration
+### `cryptotrace cache clear`
 
 ```bash
 cryptotrace cache clear
+```
+
+### `cryptotrace config show`
+
+```bash
 cryptotrace config show
 ```
 
----
+### `cryptotrace calibrate`
 
-## Signal Breakdown
+Subcommands:
+- `generate`
+- `train`
+- `status`
 
-Each analysis returns a `SignalBreakdown` with these components:
+Examples:
 
-| Signal | Range | Description |
-|--------|-------|-------------|
-| `entropy` | 0.0–8.0 | Shannon entropy of the input |
-| `block_alignment` | 0.0–1.0 | How well data aligns to AES/RSA block sizes |
-| `magic_bytes` | 0.0–1.0 | Confidence from signature registry match |
-| `length_pattern` | 0.0–1.0 | How well length matches expected hash/encoding sizes |
-| `charset_purity` | 0.0–1.0 | Portion of input matching expected character set |
-| `window_variance` | 0.0+ | Variance in sliding-window entropy scores |
-| `byte_distribution` | 0.0–1.0 | Uniformity of byte frequency distribution |
-
----
-
-## Architecture
-
-```
-src/
-├── main.rs                  # Binary entrypoint (CLI or --api server)
-├── lib.rs                   # Crate root (public module exports)
-├── cli.rs                   # CLI definition (clap derive)
-├── types.rs                 # Core structs: DetectionResult, SignalBreakdown, etc.
-├── error.rs                 # CryptoTraceError enum (thiserror)
-├── workers.rs               # WorkerPool wrapper (backward compat)
-├── cache.rs                 # LRU cache for dedup and AI narratives
-├── update.rs                # Signature database update manager
-├── analyzers/
-│   ├── file.rs              # Full detection pipeline (+sandboxed variants)
-│   ├── string.rs            # String-specific analysis
-│   └── recursive.rs         # Recursive layer unwrapping
-├── core/
-│   ├── entropy.rs           # Shannon entropy + classification
-│   ├── sliding_entropy.rs   # 4KB rolling-window entropy
-│   ├── hashing.rs           # Hash format detection
-│   ├── encoding.rs          # Encoding format detection
-│   ├── compression.rs       # Compression detection + decompression
-│   ├── encryption.rs        # Encryption heuristics
-│   ├── calibration.rs       # Platt scaling logistic regression
-│   └── confidence.rs        # Calibrated/provisional confidence engine
-├── signatures/
-│   ├── mod.rs               # Magic byte registry (YAML-driven)
-│   └── default.yaml         # 50-entry built-in registry
-├── intelligence/
-│   ├── risk.rs              # Risk level resolution
-│   ├── prompt.rs            # AI prompt builder (re-exports narrative)
-│   ├── narrative.rs         # AI response validation + build_prompt
-│   └── audit.rs             # Structured audit logging
-├── providers/
-│   └── mod.rs               # AiProvider trait (OpenAI/Anthropic/Local)
-├── reports/
-│   ├── terminal.rs          # Formatted terminal output
-│   └── json.rs              # JSON serialization
-├── sanitization/
-│   ├── guard.rs             # InputGuard (size, null bytes, traversal)
-│   └── sandbox.rs           # Subprocess isolation with timeout
-├── api/
-│   ├── mod.rs               # ApiConfig + run() with graceful shutdown
-│   ├── routes.rs            # GET /health, GET /version, POST /analyze
-│   ├── auth.rs              # Bearer token auth + rate limiter
-│   └── errors.rs            # Structured JSON error responses
-└── bin/
-    └── worker.rs            # cryptotrace-worker binary
+```bash
+cryptotrace calibrate generate --samples 200 --output calibration_data/train.csv
+cryptotrace calibrate train --data calibration_data/train.csv
+cryptotrace calibrate status
 ```
 
----
+## API Reference
 
-## Security
+CryptoTrace exposes an HTTP API when started with `--api`.
 
-- **Air-gapped by default** — no network calls unless explicitly configured
-- **All AI features opt-in** — disabled until a provider is configured in `cryptotrace.toml` or env var
-- **Input limits** — 50 MB files, 10 MB strings, null bytes rejected in strings
-- **Decompression guards** — 100:1 expansion ratio limit, 100 MB output cap
-- **Recursion guards** — depth limit (10), timeout (30s), cycle detection via hash set
-- **Sandbox isolation** — risky parsers run in isolated subprocesses with hard timeout and crash recovery
-- **Structured AI output** — per-field JSON validation prevents hallucination (hallucinated CVEs, missing signal references)
-- **API authentication** — Bearer token or X-API-Key header with configurable rate limiting
+### Start
 
-See [`SECURITY.md`](SECURITY.md) for the full security policy.
-
----
-
-## Configuration
-
-Create a `cryptotrace.toml` file in the working directory or in `%APPDATA%/cryptotrace/`:
-
-```toml
-[analysis]
-context = "forensics"
-max_file_size = 52428800
-max_string_size = 10485760
-deep = false
-
-[signatures]
-registry_path = ""
-auto_update = false
-
-[sandbox]
-enabled = false
-max_workers = 4
-timeout_seconds = 30
-
-[ai]
-# provider = "openai"
-# api_key = "sk-..."
-
-[cache]
-max_ai_entries = 100
-dedup_enabled = true
-max_dedup_entries = 1000
-
-[api]
-enabled = false
-bind = "127.0.0.1:8080"
-rate_limit = 60
-
-[logging]
-level = "info"
-format = "pretty"
+```bash
+cryptotrace --api
 ```
 
-See [`cryptotrace.toml.example`](cryptotrace.toml.example) for a complete reference.
+Config sources:
+- env vars (`API_BIND`, `API_KEY`, `API_RATE_LIMIT`, `API_SANDBOX`)
+- `cryptotrace.toml` in current dir
 
----
+### Endpoints
 
-## Development
+Public:
+- `GET /docs`
+- `GET /health`
+- `GET /version`
 
-### Running tests
+Analysis:
+- `POST /analyze`
+- `POST /v1/jobs`
+- `GET /v1/jobs/:id`
+- `DELETE /v1/jobs/:id`
+
+### Example: Health
+
+```bash
+curl http://127.0.0.1:8080/health
+```
+
+### Example: Sync Analyze
+
+```bash
+curl -X POST http://127.0.0.1:8080/analyze \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input":"5f4dcc3b5aa765d61d8327deb882cf99",
+    "input_type":"string",
+    "context":"forensics",
+    "deep":false,
+    "ai":false,
+    "sandbox":false
+  }'
+```
+
+### Example: Async Job
+
+Submit:
+
+```bash
+curl -X POST http://127.0.0.1:8080/v1/jobs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input":"payload.bin",
+    "input_type":"file",
+    "context":"malware",
+    "deep":true,
+    "ai":false,
+    "sandbox":false
+  }'
+```
+
+Poll:
+
+```bash
+curl http://127.0.0.1:8080/v1/jobs/1
+```
+
+Cancel:
+
+```bash
+curl -X DELETE http://127.0.0.1:8080/v1/jobs/1
+```
+
+## Output Schema
+
+The canonical output struct is `DetectionResult` in `src/types.rs`.
+
+Key fields:
+- `detected_type`
+- `algorithm`
+- `confidence`
+- `calibrated`
+- `risk_level`
+- `weakness_cve`
+- `signals`
+- `primary_drivers`
+- `conflicting_signals`
+- `decision_trace`
+- `layers`
+
+Example JSON (abridged for readability):
+
+```json
+{
+  "input_hash": "...",
+  "source_type": "String",
+  "entropy": 3.8,
+  "detected_type": "hash",
+  "algorithm": "MD5",
+  "confidence": 0.98,
+  "calibrated": true,
+  "risk_level": "Critical",
+  "weakness_cve": ["CVE-2013-6623"],
+  "signals": {
+    "entropy": 0.87,
+    "block_alignment": 0.0,
+    "magic_bytes": 0.0,
+    "length_pattern": 1.0,
+    "charset_purity": 1.0,
+    "window_variance": 0.0
+  },
+  "primary_drivers": ["length_pattern", "charset_purity"],
+  "conflicting_signals": [],
+  "decision_trace": "...",
+  "layers": []
+}
+```
+
+## Configuration Reference
+
+CryptoTrace reads `cryptotrace.toml` from the current directory.
+
+The API server also reads env vars:
+- `API_BIND`
+- `API_KEY`
+- `API_RATE_LIMIT`
+- `API_SANDBOX`
+
+Defaults are intentionally conservative.
+AI remains disabled.
+
+For full guidance:
+- `docs/GETTING_STARTED.md`
+- `docs/AIR_GAP_GUIDE.md`
+
+## Security Model
+
+CryptoTrace assumes inputs are adversarial.
+
+### Sanitization
+
+Examples of enforced policies:
+- size limits
+- null byte policy for strings
+- safe path handling
+
+### Recursive Unwrapping
+
+Hard limits:
+- `max_depth`
+- `max_time_secs`
+- `max_expansion_ratio`
+
+### Decompression Bomb Defense
+
+If decompression expands beyond 100:1, CryptoTrace aborts extraction.
+
+### Subprocess Isolation
+
+The `cryptotrace-worker` binary runs risky parsing operations.
+If it crashes, the parent remains alive.
+
+### Air Gap Defaults
+
+No network calls happen unless you opt in.
+Threat intel and AI features require explicit configuration.
+
+See `SECURITY.md` for reporting policy.
+
+## Threat Intel (Opt-In)
+
+Threat intel is implemented in `src/intelligence/threat_intel.rs`.
+
+Features:
+- VirusTotal v3 queries (requires API key)
+- YARA CLI scanning (requires yara installed)
+
+These are off by default.
+
+## SIEM Integration (CEF/LEEF)
+
+SIEM formatting is implemented in `src/intelligence/siem.rs`.
+
+Available functions:
+- `format_cef(&DetectionResult) -> String`
+- `format_leef(&DetectionResult) -> String`
+
+These are intended for integrations where CryptoTrace is embedded.
+
+## Reports (JSON/HTML)
+
+HTML report generation lives in `src/reports/html.rs`.
+JSON is the canonical output of the engine and API.
+
+## Signature Database and Updates
+
+Signature registry:
+- magic bytes
+- risk mapping
+- CVE mapping in `signatures/cve_map.yaml`
+
+Updates:
+- verification
+- provenance log
+- rollback
+- air-gap import
+
+## Calibration (Confidence Model)
+
+Calibration lives in `src/core/calibration.rs`.
+
+The model file lives in:
+- `calibration_data/model.json`
+
+The CLI supports training.
+Confidence can be calibrated or provisional.
+
+## Testing, Fuzzing, and Quality Gates
+
+CryptoTrace uses:
+- unit tests
+- integration tests
+- accuracy tests
+- fuzz targets
+
+Run tests:
 
 ```bash
 cargo test
 ```
 
-94 tests covering all detection modules, calibration, sanitization, API server, sandbox, signatures, and update management.
+Fuzzing:
+- requires nightly
+- long fuzz runs are recommended on Linux
 
-### Building
+Commands:
 
 ```bash
-cargo build                 # debug
-cargo build --release       # release (LTO, stripped)
+make fuzz
+make fuzz-long
+bash scripts/fuzz-long.sh
 ```
 
-### Code style
+## Packaging and Distribution (v1 Plan)
+
+CryptoTrace is open-source and intended to be easy to install.
+
+Packaging targets:
+
+1. crates.io
+2. Homebrew
+3. Docker images
+4. GitHub Releases
+
+### crates.io (Planned)
+
+Once published:
 
 ```bash
+cargo install cryptotrace
+```
+
+### Homebrew (Planned)
+
+Once published:
+
+```bash
+brew install cryptotrace
+```
+
+### Docker Image (Planned)
+
+We plan to publish a Docker image.
+We plan to publish it as multi-arch.
+
+Multi-arch means one tag supports:
+- `linux/amd64`
+- `linux/arm64`
+
+Example usage (once published):
+
+```bash
+docker run --rm -v "$PWD:/work" -w /work ghcr.io/parv68/cryptotrace:latest \
+  cryptotrace analyze suspicious.bin --json
+```
+
+Example build commands (maintainers):
+
+```bash
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  -t ghcr.io/parv68/cryptotrace:latest \
+  -t ghcr.io/parv68/cryptotrace:1.0.0 \
+  --push \
+  .
+```
+
+### GitHub Releases (Planned)
+
+We will attach binaries for:
+- Windows
+- macOS
+- Linux
+
+## Development
+
+Common commands:
+
+```bash
+cargo build
+cargo build --release
 cargo fmt
-cargo clippy
+cargo clippy --all-targets -- -D warnings
+cargo test
 ```
 
----
+## Troubleshooting
+
+### "worker not found" errors
+
+If you use `--sandbox`, ensure `cryptotrace-worker` is on PATH.
+If building from source, build both binaries.
+
+### API bind
+
+Use `API_BIND` to configure the bind address.
+
+### Windows fuzzing
+
+Long fuzz runs are recommended on Linux.
+
+## Project Status and Roadmap
+
+Current status:
+- core engine implemented
+- API implemented
+- tests and safety guardrails implemented
+
+v1 focus areas:
+- packaging (crates.io, Homebrew, Docker)
+- long fuzz run gates
+- release automation
+
+## Contributing
+
+See `CONTRIBUTING.md`.
+See `CODE_OF_CONDUCT.md`.
+See `SECURITY.md`.
 
 ## License
 
-Apache 2.0. See [`LICENSE`](LICENSE).
+Apache-2.0.
+See `LICENSE`.
