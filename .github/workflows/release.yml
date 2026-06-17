@@ -114,7 +114,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           name: CryptoTrace ${{ github.ref_name }}
-          body_path: CHANGELOG.md
+          body: "See [CHANGELOG](https://github.com/parv68/CryptoTrace/commits/main) for details."
           files: artifacts/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
