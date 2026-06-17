@@ -2,14 +2,23 @@ use std::fs;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    let path = if args.len() > 1 { &args[1] } else { "Cargo.toml" };
+    let path = if args.len() > 1 {
+        &args[1]
+    } else {
+        "Cargo.toml"
+    };
     let data = fs::read(path).expect("Failed to read file");
 
     println!("File: {} ({} bytes)", path, data.len());
     let (entropy, _) = cryptotrace::core::entropy::shannon_entropy(&data);
     println!("Global Shannon entropy: {:.2} bits/byte", entropy);
 
-    let sw = cryptotrace::core::sliding_entropy::sliding_window_entropy(&data, Some(4096), None, Some(7.5));
+    let sw = cryptotrace::core::sliding_entropy::sliding_window_entropy(
+        &data,
+        Some(4096),
+        None,
+        Some(7.5),
+    );
 
     if sw.window_scores.is_empty() {
         println!("File too small for any window");
@@ -17,8 +26,16 @@ fn main() {
     }
 
     let avg: f64 = sw.window_scores.iter().sum::<f64>() / sw.window_scores.len() as f64;
-    let max_score = sw.window_scores.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-    let min_score = sw.window_scores.iter().cloned().fold(f64::INFINITY, f64::min);
+    let max_score = sw
+        .window_scores
+        .iter()
+        .cloned()
+        .fold(f64::NEG_INFINITY, f64::max);
+    let min_score = sw
+        .window_scores
+        .iter()
+        .cloned()
+        .fold(f64::INFINITY, f64::min);
 
     println!("Windows analyzed: {}", sw.window_scores.len());
     println!("Avg window entropy: {:.2}", avg);

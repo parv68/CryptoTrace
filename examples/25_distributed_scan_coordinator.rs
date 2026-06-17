@@ -1,5 +1,5 @@
-use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Instant;
 
@@ -71,7 +71,8 @@ impl Coordinator {
 
                     let start = Instant::now();
                     let result = cryptotrace::analyzers::file::analyze_bytes(
-                        &data, cryptotrace::types::SourceType::Binary,
+                        &data,
+                        cryptotrace::types::SourceType::Binary,
                     );
                     let duration = start.elapsed();
 
@@ -109,8 +110,12 @@ impl Coordinator {
         println!("  Avg/job:    {:.1}ms", avg);
 
         for job in jobs.iter() {
-            println!("    Job {:3}: {:8}ms | {:?}", job.id, job.duration_ms,
-                job.result.as_deref().unwrap_or("N/A"));
+            println!(
+                "    Job {:3}: {:8}ms | {:?}",
+                job.id,
+                job.duration_ms,
+                job.result.as_deref().unwrap_or("N/A")
+            );
         }
     }
 }
@@ -137,7 +142,11 @@ fn main() {
         coordinator.submit(data.to_vec());
     }
 
-    println!("Submitted {} jobs to {} workers\n", test_inputs.len(), coordinator.max_workers);
+    println!(
+        "Submitted {} jobs to {} workers\n",
+        test_inputs.len(),
+        coordinator.max_workers
+    );
 
     let start = Instant::now();
     coordinator.run();

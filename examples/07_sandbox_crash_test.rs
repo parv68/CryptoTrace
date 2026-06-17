@@ -19,10 +19,19 @@ fn main() {
             }
         }
         Err(e) => {
-            println!("Sandbox worker failed (expected if no worker binary): {}", e);
+            println!(
+                "Sandbox worker failed (expected if no worker binary): {}",
+                e
+            );
             println!("Falling back to in-process analysis...");
-            match cryptotrace::analyzers::file::analyze_bytes(test_data, cryptotrace::types::SourceType::Binary) {
-                Ok(r) => println!("In-process result: algo={:?} ent={}", r.algorithm, r.entropy),
+            match cryptotrace::analyzers::file::analyze_bytes(
+                test_data,
+                cryptotrace::types::SourceType::Binary,
+            ) {
+                Ok(r) => println!(
+                    "In-process result: algo={:?} ent={}",
+                    r.algorithm, r.entropy
+                ),
                 Err(e2) => eprintln!("Fallback also failed: {}", e2),
             }
         }

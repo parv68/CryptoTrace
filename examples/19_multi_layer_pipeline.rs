@@ -10,8 +10,9 @@ byBkZXRlY3QgdGhpcyBzZWNyZXQga2V5IGFuZCBpdHMgZW5jb2Rpbmc=
 -----END PGP PRIVATE KEY BLOCK-----"#;
     println!("Step 1: Input ({} bytes)", input.len());
 
-    let format_result = cryptotrace::analyzers::file::analyze_bytes(input, cryptotrace::types::SourceType::Binary)
-        .expect("Analysis failed");
+    let format_result =
+        cryptotrace::analyzers::file::analyze_bytes(input, cryptotrace::types::SourceType::Binary)
+            .expect("Analysis failed");
     println!("Step 2: Detection complete");
     println!("  Algorithm: {:?}", format_result.algorithm);
     println!("  Type: {}", format_result.detected_type);
@@ -23,9 +24,17 @@ byBkZXRlY3QgdGhpcyBzZWNyZXQga2V5IGFuZCBpdHMgZW5jb2Rpbmc=
         println!("  CVEs: {:?}", format_result.weakness_cve);
     }
 
-    let sw = cryptotrace::core::sliding_entropy::sliding_window_entropy(input, Some(4096), None, Some(0.75));
-    println!("Step 3: Sliding window ({} windows, peak {:.2})",
-        sw.window_scores.len(), sw.max_window_entropy);
+    let sw = cryptotrace::core::sliding_entropy::sliding_window_entropy(
+        input,
+        Some(4096),
+        None,
+        Some(0.75),
+    );
+    println!(
+        "Step 3: Sliding window ({} windows, peak {:.2})",
+        sw.window_scores.len(),
+        sw.max_window_entropy
+    );
     if let Some(region) = sw.embedded_regions.first() {
         println!("  Peak region offset: {}-{}", region.start, region.end);
     }

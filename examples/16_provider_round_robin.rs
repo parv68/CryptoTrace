@@ -24,6 +24,9 @@ fn main() {
 
     println!("\n--- Encoding Providers ---");
     for provider in registry.by_categories(&["encoding"]).into_iter().take(5) {
-        println!("  Provider: {} (trust: {})", provider.name, provider.trust_level);
+        println!(
+            "  Provider: {} (trust: {})",
+            provider.name, provider.trust_level
+        );
     }
 }
