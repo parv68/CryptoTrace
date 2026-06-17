@@ -40,7 +40,10 @@ fn main() {
         }},
     ];
 
-    println!("{:30} {:>8} {:>12} {:>15} {:>10}", "Type", "Entropy", "Sliding Avg", "Encoding", "Algo");
+    println!(
+        "{:30} {:>8} {:>12} {:>15} {:>10}",
+        "Type", "Entropy", "Sliding Avg", "Encoding", "Algo"
+    );
     println!("{}", "-".repeat(80));
 
     for s in &samples {
@@ -50,16 +53,27 @@ fn main() {
         let enc = cryptotrace::core::encoding::detect_encoding(&text);
 
         let algo_s = hash.as_ref().map(|h| h.algorithm.as_str()).unwrap_or("-");
-        let enc_s = enc.as_ref().map(|e| e.encoding_type.as_str()).unwrap_or("-");
+        let enc_s = enc
+            .as_ref()
+            .map(|e| e.encoding_type.as_str())
+            .unwrap_or("-");
 
-        let sw = cryptotrace::core::sliding_entropy::sliding_window_entropy(&s.data, Some(4096), None, Some(0.75));
+        let sw = cryptotrace::core::sliding_entropy::sliding_window_entropy(
+            &s.data,
+            Some(4096),
+            None,
+            Some(0.75),
+        );
         let sliding_avg = if !sw.window_scores.is_empty() {
             sw.window_scores.iter().sum::<f64>() / sw.window_scores.len() as f64
         } else {
             0.0
         };
 
-        println!("{:30} {:>7.2}  {:>10.2} {:>15} {:>10}", s.label, entropy, sliding_avg, enc_s, algo_s);
+        println!(
+            "{:30} {:>7.2}  {:>10.2} {:>15} {:>10}",
+            s.label, entropy, sliding_avg, enc_s, algo_s
+        );
     }
 
     println!("\n--- Entropy Confusion Zones ---");

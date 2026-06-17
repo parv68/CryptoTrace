@@ -7,7 +7,8 @@ fn main() {
 
     let mut compressed = Vec::new();
     {
-        let mut encoder = flate2::write::GzEncoder::new(&mut compressed, flate2::Compression::best());
+        let mut encoder =
+            flate2::write::GzEncoder::new(&mut compressed, flate2::Compression::best());
         encoder.write_all(&bomb_data).unwrap();
         encoder.finish().unwrap();
     }
@@ -26,7 +27,11 @@ fn main() {
 
     match result {
         Ok(decompressed) => {
-            println!("Decompressed: {} bytes (ratio: {:.1})", decompressed.data.len(), decompressed.expansion_ratio);
+            println!(
+                "Decompressed: {} bytes (ratio: {:.1})",
+                decompressed.data.len(),
+                decompressed.expansion_ratio
+            );
         }
         Err(e) => {
             println!("Decompression denied: {}", e);
@@ -37,16 +42,25 @@ fn main() {
     let normal_data = b"Hello World! This is a test of the compression bomb defense mechanism.";
     let mut normal_compressed = Vec::new();
     {
-        let mut encoder = flate2::write::GzEncoder::new(&mut normal_compressed, flate2::Compression::default());
+        let mut encoder =
+            flate2::write::GzEncoder::new(&mut normal_compressed, flate2::Compression::default());
         encoder.write_all(normal_data).unwrap();
         encoder.finish().unwrap();
     }
 
     println!("\n--- Normal compression test ---");
-    println!("Original: {} bytes, Compressed: {} bytes", normal_data.len(), normal_compressed.len());
+    println!(
+        "Original: {} bytes, Compressed: {} bytes",
+        normal_data.len(),
+        normal_compressed.len()
+    );
 
     match cryptotrace::core::compression::try_decompress(&normal_compressed, "GZIP") {
-        Ok(d) => println!("Normal decompression OK: {} bytes (ratio: {:.1})", d.data.len(), d.expansion_ratio),
+        Ok(d) => println!(
+            "Normal decompression OK: {} bytes (ratio: {:.1})",
+            d.data.len(),
+            d.expansion_ratio
+        ),
         Err(e) => println!("Unexpected rejection: {}", e),
     }
 }

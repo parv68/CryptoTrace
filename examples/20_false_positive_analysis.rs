@@ -1,4 +1,4 @@
-use cryptotrace::core::calibration::{generate_synthetic_dataset, train, predict_proba};
+use cryptotrace::core::calibration::{generate_synthetic_dataset, predict_proba, train};
 use cryptotrace::types::SignalBreakdown;
 
 fn main() {
@@ -13,18 +13,31 @@ fn main() {
         "abcdefghijklmnopqrstuvwxyz",
     ];
 
-    println!("Running detection on {} plaintext samples:\n", plaintexts.len());
+    println!(
+        "Running detection on {} plaintext samples:\n",
+        plaintexts.len()
+    );
     for text in &plaintexts {
         let hash_detection = cryptotrace::core::hashing::detect_hash(text);
         let enc_detection = cryptotrace::core::encoding::detect_encoding(text);
 
-        let algo = hash_detection.as_ref().map(|h| h.algorithm.as_str()).unwrap_or("none");
-        let enc = enc_detection.as_ref().map(|e| e.encoding_type.as_str()).unwrap_or("none");
+        let algo = hash_detection
+            .as_ref()
+            .map(|h| h.algorithm.as_str())
+            .unwrap_or("none");
+        let enc = enc_detection
+            .as_ref()
+            .map(|e| e.encoding_type.as_str())
+            .unwrap_or("none");
 
         let is_false_positive = algo != "none" || enc != "none";
-        println!("  {:60} hash={:8} enc={:8}{}",
-            text, algo, enc,
-            if is_false_positive { "  FP" } else { "" });
+        println!(
+            "  {:60} hash={:8} enc={:8}{}",
+            text,
+            algo,
+            enc,
+            if is_false_positive { "  FP" } else { "" }
+        );
     }
 
     println!("\n--- Calibration to Suppress False Positives ---");
@@ -43,8 +56,15 @@ fn main() {
             window_variance: Some(0.3),
         };
         let prob = predict_proba(&model, &test_signals);
-        println!("  {:50} calibrated_prob={:.4} {}",
-            text, prob,
-            if prob < 0.3 { "suppressed" } else { "still flagged" });
+        println!(
+            "  {:50} calibrated_prob={:.4} {}",
+            text,
+            prob,
+            if prob < 0.3 {
+                "suppressed"
+            } else {
+                "still flagged"
+            }
+        );
     }
 }

@@ -4,14 +4,15 @@ async fn main() {
 
     println!("Step 1: Hash identification");
     if let Some(h) = cryptotrace::core::hashing::detect_hash(sample_hash) {
-        println!("  Algorithm: {} (confidence {:.2})", h.algorithm, h.confidence);
+        println!(
+            "  Algorithm: {} (confidence {:.2})",
+            h.algorithm, h.confidence
+        );
     }
 
     println!("\nStep 2: CVE lookup");
-    let cve_map = cryptotrace::intelligence::risk::build_cve_map(
-        "signatures/cve_map.yaml",
-        "cve-db.json",
-    );
+    let cve_map =
+        cryptotrace::intelligence::risk::build_cve_map("signatures/cve_map.yaml", "cve-db.json");
     if let Some(cves) = cve_map.get("MD5") {
         println!("  Known CVEs for MD5: {:?}", cves);
     }
@@ -23,15 +24,16 @@ async fn main() {
         enable_scan: true,
     };
 
-    let reports = cryptotrace::intelligence::threat_intel::composite_threat_scan(
-        sample_hash,
-        &[],
-        &config,
-    ).await.unwrap_or_default();
+    let reports =
+        cryptotrace::intelligence::threat_intel::composite_threat_scan(sample_hash, &[], &config)
+            .await
+            .unwrap_or_default();
     println!("  Threat reports: {}", reports.len());
     for report in &reports {
-        println!("    Source: {} | Positives: {}/{} | Malicious: {}",
-            report.source, report.positives, report.total_scanners, report.malicious);
+        println!(
+            "    Source: {} | Positives: {}/{} | Malicious: {}",
+            report.source, report.positives, report.total_scanners, report.malicious
+        );
     }
 
     let malicious = reports.iter().any(|r| r.malicious);

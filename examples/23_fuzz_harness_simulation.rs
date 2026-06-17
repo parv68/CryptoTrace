@@ -14,7 +14,9 @@ fn main() {
     println!("=== In-Process Fuzz Harness Simulation ===\n");
 
     let iterations: u64 = std::env::var("FUZZ_ITERATIONS")
-        .ok().and_then(|s| s.parse().ok()).unwrap_or(10_000);
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(10_000);
 
     let mut stats = FuzzStats {
         total_inputs: 0,
@@ -46,7 +48,12 @@ fn main() {
         let (entropy, _) = cryptotrace::core::entropy::shannon_entropy(&input);
         stats.avg_entropy += entropy;
 
-        let _sw = cryptotrace::core::sliding_entropy::sliding_window_entropy(&input, Some(4096), None, Some(0.75));
+        let _sw = cryptotrace::core::sliding_entropy::sliding_window_entropy(
+            &input,
+            Some(4096),
+            None,
+            Some(0.75),
+        );
     }
 
     let elapsed = start.elapsed();
@@ -55,11 +62,17 @@ fn main() {
     println!("=== Fuzz Results ===");
     println!("  Total inputs:     {}", stats.total_inputs);
     println!("  Time:             {:.2}s", elapsed.as_secs_f64());
-    println!("  Throughput:       {:.0} inputs/sec", stats.total_inputs as f64 / elapsed.as_secs_f64());
+    println!(
+        "  Throughput:       {:.0} inputs/sec",
+        stats.total_inputs as f64 / elapsed.as_secs_f64()
+    );
     println!("  Hash detections:  {}", stats.hash_detections);
     println!("  Encoding detects: {}", stats.enc_detections);
     println!("  Avg entropy:      {:.2}", stats.avg_entropy);
-    println!("  Input range:      {} - {} bytes", stats.min_len, stats.max_len);
+    println!(
+        "  Input range:      {} - {} bytes",
+        stats.min_len, stats.max_len
+    );
     println!("\nAll detectors stable under fuzzing");
 }
 
