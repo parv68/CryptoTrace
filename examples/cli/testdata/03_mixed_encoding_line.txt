@@ -1,0 +1,1 @@
+The token is 48656C6C6F and the key is SGVsbG8= but the real secret is base64(SGVsbG8gV29ybGQ=) all in one line

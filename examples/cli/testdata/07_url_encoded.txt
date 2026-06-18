@@ -1,0 +1,1 @@
+Hello%20World%21%20This%20is%20a%20URL%20encoded%20string%20with%20%24sp3c1al%20chars%21

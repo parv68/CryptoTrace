@@ -1,0 +1,3 @@
+-----BEGIN CERTIFICATE-----
+MIIDazCCA
+-----END CERTIFICATE-----
