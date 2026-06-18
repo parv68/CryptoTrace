@@ -73,11 +73,11 @@ EXTRACTED_DIR=$(find "$TMP_DIR" -maxdepth 1 -type d | tail -1)
 INSTALL_DIR="/usr/local/bin"
 if [ ! -w "$INSTALL_DIR" ]; then
   echo "→ Need sudo to install to $INSTALL_DIR"
-  sudo cp "$EXTRACTED_DIR/cryptotrace" "$INSTALL_DIR/"
-  sudo cp "$EXTRACTED_DIR/cryptotrace-worker" "$INSTALL_DIR/"
+  sudo cp -f "$EXTRACTED_DIR/cryptotrace" "$INSTALL_DIR/"
+  sudo cp -f "$EXTRACTED_DIR/cryptotrace-worker" "$INSTALL_DIR/"
 else
-  cp "$EXTRACTED_DIR/cryptotrace" "$INSTALL_DIR/"
-  cp "$EXTRACTED_DIR/cryptotrace-worker" "$INSTALL_DIR/"
+  cp -f "$EXTRACTED_DIR/cryptotrace" "$INSTALL_DIR/"
+  cp -f "$EXTRACTED_DIR/cryptotrace-worker" "$INSTALL_DIR/"
 fi
 
 # Install signatures + calibration data
@@ -85,12 +85,12 @@ DATA_DIR="/usr/local/share/cryptotrace"
 echo "→ Installing data to $DATA_DIR"
 if [ ! -w "/usr/local/share" ]; then
   sudo mkdir -p "$DATA_DIR"
-  sudo cp -r "$EXTRACTED_DIR/signatures" "$DATA_DIR/"
-  sudo cp -r "$EXTRACTED_DIR/calibration_data" "$DATA_DIR/"
+  sudo cp -rf "$EXTRACTED_DIR/signatures" "$DATA_DIR/"
+  sudo cp -rf "$EXTRACTED_DIR/calibration_data" "$DATA_DIR/"
 else
   mkdir -p "$DATA_DIR"
-  cp -r "$EXTRACTED_DIR/signatures" "$DATA_DIR/"
-  cp -r "$EXTRACTED_DIR/calibration_data" "$DATA_DIR/"
+  cp -rf "$EXTRACTED_DIR/signatures" "$DATA_DIR/"
+  cp -rf "$EXTRACTED_DIR/calibration_data" "$DATA_DIR/"
 fi
 
 echo ""

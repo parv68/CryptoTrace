@@ -68,10 +68,10 @@ Copy-Item (Join-Path $ExtractedDir "cryptotrace-worker.exe") $BinDir
 Write-Host "→ Installing data to $DataDir"
 New-Item -ItemType Directory -Path $DataDir -Force | Out-Null
 if (Test-Path (Join-Path $ExtractedDir "signatures")) {
-    Copy-Item -Recurse (Join-Path $ExtractedDir "signatures") $DataDir
+    Copy-Item -Recurse -Force (Join-Path $ExtractedDir "signatures") $DataDir
 }
 if (Test-Path (Join-Path $ExtractedDir "calibration_data")) {
-    Copy-Item -Recurse (Join-Path $ExtractedDir "calibration_data") $DataDir
+    Copy-Item -Recurse -Force (Join-Path $ExtractedDir "calibration_data") $DataDir
 }
 
 # Add to PATH for current user
